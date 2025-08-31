@@ -11,6 +11,7 @@ class HabaEditor(tk.Frame):
         self.master.title("Haba Editor")
         self.pack(fill=tk.BOTH, expand=True)
         self.parser = HabaParser()
+        self.language = 'javascript' # Default language for the script panel
         self.create_widgets()
 
     def create_widgets(self):
@@ -86,8 +87,8 @@ class HabaEditor(tk.Frame):
         if not self.script_text.edit_modified():
             return
         script_content = self.script_text.get("1.0", tk.END)
-        self.symbol_outline_panel.update_symbols(script_content)
-        self.todo_explorer_panel.update_todos(script_content)
+        self.symbol_outline_panel.update_symbols(script_content, self.language)
+        self.todo_explorer_panel.update_todos(script_content, self.language)
         self.lint_script_text()
         self.script_text.edit_modified(False)
 
