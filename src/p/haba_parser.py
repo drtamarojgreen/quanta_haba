@@ -63,7 +63,7 @@ class HabaParser:
         Builds a .haba file string from a HabaData object.
         """
         # Build content layer
-        content_str = f"<content_layer>\n{haba_data.content}\n</content_layer>\n"
+        content_str = f"<content_layer>\n    {haba_data.content}\n</content_layer>\n"
 
         # Build presentation layer
         containers_str = "\n".join([f"        {item[0]}" for item in haba_data.presentation_items])
@@ -81,30 +81,32 @@ class HabaParser:
         )
 
         # Build script layer
-        script_str = f"<script_layer>\n{haba_data.script}\n</script_layer>" if haba_data.script else ""
+        script_str = f"<script_layer>\n    {haba_data.script}\n</script_layer>\n"
 
         return content_str + presentation_str + script_str
 
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':
-    example_haba_text = """<content_layer>
-This is the main text content.
-It can span multiple lines.
-</content_layer>
-<presentation_layer>
-    <containers>
-        <div>
-        <p>
-    </containers>
-    <styles>
-        { color: 'blue' }
-        { font-size: '16px' }
-    </styles>
-</presentation_layer>
-<script_layer>
-console.log("Haba script loaded!");
-</script_layer>"""
+    example_haba_text = """
+    <content_layer>
+        This is the main text content.
+        It can span multiple lines.
+    </content_layer>
+    <presentation_layer>
+        <containers>
+            <div>
+            <p>
+        </containers>
+        <styles>
+            { color: 'blue' }
+            { font-size: '16px' }
+        </styles>
+    </presentation_layer>
+    <script_layer>
+        console.log("Hello from Haba script!");
+    </script_layer>
+    """
 
     parser = HabaParser()
     parsed_data = parser.parse(example_haba_text)
