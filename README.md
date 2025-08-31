@@ -21,6 +21,35 @@ Pre-built micro-apps (quizzes, journals, community tools) that can be slotted in
 AI Pair Designer
 Guided design flow that suggests accessibility fixes, performance optimizations, and modern UI patterns.
 
+## Developer Tools
+
+In addition to the main QuantaHaba web editor, the project includes a suite of tools for C++ and Python developers.
+
+### Haba C++ CLI Tool
+
+The `haba-converter` is a command-line utility for converting `.haba` files into standard `.html` files.
+
+**Usage:**
+```bash
+./haba-converter /path/to/your/file.haba
+```
+
+### C++/Python Editor Enhancements
+
+The project also defines a collection of C++ and Python editor enhancements, designed to be implemented without third-party libraries.
+
+**Key C/C++ Features:**
+- Header/Source file switching
+- Include autocompletion
+- Basic code formatting and build error parsing
+- GDB debugger integration
+
+**Key Python Features:**
+- Virtual environment detection
+- Import autocompletion and sorting
+- PEP 8 style linting
+- Jupyter-like cell execution with PDB debugger integration
+
 🚀 Roadmap
 
 Alpha (MVP)
