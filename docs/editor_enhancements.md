@@ -1,3 +1,4 @@
+
 # C & Python Editor Enhancements
 
 This document outlines approximately 50 editor enhancements targeted at C/C++ and Python development. These can be implemented without requiring users to install additional third-party libraries or frameworks, relying on built-in editor capabilities and standard language tools.
