@@ -5,6 +5,7 @@ class HabaData:
     def __init__(self):
         self.content = ""
         self.presentation_items = [] # A list of tuples (container_text, style_text)
+        self.script = ""
 
 class HabaParser:
     """
@@ -50,6 +51,11 @@ class HabaParser:
                 style = styles[i] if i < len(styles) else "" # Default to empty style if not enough styles
                 data.presentation_items.append((containers[i], style))
 
+        # Extract script layer
+        script_match = re.search(r'<script_layer>(.*?)</script_layer>', raw_text, re.DOTALL)
+        if script_match:
+            data.script = script_match.group(1).strip()
+
         return data
 
     def build(self, haba_data: HabaData) -> str:
@@ -57,7 +63,7 @@ class HabaParser:
         Builds a .haba file string from a HabaData object.
         """
         # Build content layer
-        content_str = f"<content_layer>\n    {haba_data.content}\n</content_layer>\n"
+        content_str = f"<content_layer>\n{haba_data.content}\n</content_layer>\n"
 
         # Build presentation layer
         containers_str = "\n".join([f"        {item[0]}" for item in haba_data.presentation_items])
@@ -71,30 +77,34 @@ class HabaParser:
             "    <styles>\n"
             f"{styles_str}\n"
             "    </styles>\n"
-            "</presentation_layer>"
+            "</presentation_layer>\n"
         )
 
-        return content_str + presentation_str
+        # Build script layer
+        script_str = f"<script_layer>\n{haba_data.script}\n</script_layer>" if haba_data.script else ""
+
+        return content_str + presentation_str + script_str
 
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':
-    example_haba_text = """
-    <content_layer>
-        This is the main text content.
-        It can span multiple lines.
-    </content_layer>
-    <presentation_layer>
-        <containers>
-            <div>
-            <p>
-        </containers>
-        <styles>
-            { color: 'blue' }
-            { font-size: '16px' }
-        </styles>
-    </presentation_layer>
-    """
+    example_haba_text = """<content_layer>
+This is the main text content.
+It can span multiple lines.
+</content_layer>
+<presentation_layer>
+    <containers>
+        <div>
+        <p>
+    </containers>
+    <styles>
+        { color: 'blue' }
+        { font-size: '16px' }
+    </styles>
+</presentation_layer>
+<script_layer>
+console.log("Haba script loaded!");
+</script_layer>"""
 
     parser = HabaParser()
     parsed_data = parser.parse(example_haba_text)
@@ -103,6 +113,7 @@ if __name__ == '__main__':
     print(f"Content: {parsed_data.content}")
     for i, (container, style) in enumerate(parsed_data.presentation_items):
         print(f"Item {i+1}: Container='{container}', Style='{style}'")
+    print(f"Script: {parsed_data.script}")
 
     print("\n--- REBUILT FILE ---")
     rebuilt_text = parser.build(parsed_data)
