@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define the executable target and list its source files
+add_executable(haba_editor
 add_executable(haba-converter
     src/c/main.cpp
     src/c/HabaParser.cpp
