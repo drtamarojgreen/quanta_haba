@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import font as tkFont
+from tkinter import ttk, filedialog, font as tkFont
 from haba_parser import HabaParser, HabaData
+from components import SymbolOutlinePanel, TodoExplorerPanel
 import re
 
 class HabaEditor(tk.Frame):
@@ -27,6 +27,9 @@ class HabaEditor(tk.Frame):
         self.render_button = tk.Button(top_frame, text="Render", command=self.render_preview)
         self.render_button.pack(side=tk.LEFT, padx=5)
 
+        self.lint_button = tk.Button(top_frame, text="Lint", command=self.lint_script_text)
+        self.lint_button.pack(side=tk.LEFT, padx=5)
+
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL)
         main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -44,13 +47,23 @@ class HabaEditor(tk.Frame):
         self.raw_text.bind("<<Modified>>", self.on_text_change)
         top_paned_window.add(left_frame, stretch="always")
 
-        # Right panel for WYSIWYG preview
-        right_frame = tk.Frame(top_paned_window)
-        preview_label = tk.Label(right_frame, text="WYSIWYG Preview")
-        preview_label.pack(anchor=tk.W)
-        self.preview_text = tk.Text(right_frame, wrap=tk.WORD, state=tk.DISABLED)
+        # Right panel with a notebook for different views
+        right_notebook = ttk.Notebook(top_paned_window)
+        top_paned_window.add(right_notebook, stretch="always")
+
+        # WYSIWYG Preview Tab
+        preview_frame = tk.Frame(right_notebook)
+        self.preview_text = tk.Text(preview_frame, wrap=tk.WORD, state=tk.DISABLED)
         self.preview_text.pack(fill=tk.BOTH, expand=True)
-        top_paned_window.add(right_frame, stretch="always")
+        right_notebook.add(preview_frame, text="WYSIWYG Preview")
+
+        # Symbol Outline Tab
+        self.symbol_outline_panel = SymbolOutlinePanel(right_notebook)
+        right_notebook.add(self.symbol_outline_panel, text="Symbol Outline")
+
+        # TODO Explorer Tab
+        self.todo_explorer_panel = TodoExplorerPanel(right_notebook)
+        right_notebook.add(self.todo_explorer_panel, text="TODO Explorer")
 
         # Bottom panel for script editing
         script_frame = tk.Frame(main_paned_window)
@@ -58,12 +71,43 @@ class HabaEditor(tk.Frame):
         script_label.pack(anchor=tk.W)
         self.script_text = tk.Text(script_frame, wrap=tk.WORD, undo=True)
         self.script_text.pack(fill=tk.BOTH, expand=True)
+        self.script_text.bind("<<Modified>>", self.on_script_text_change)
         main_paned_window.add(script_frame, stretch="always")
+
+        # Configure tags for linting
+        self.script_text.tag_configure("trailing_whitespace", background="orange red")
+        self.script_text.tag_configure("missing_semicolon", background="yellow")
 
     def on_text_change(self, event=None):
         self.render_preview()
-        # The <<Modified>> event needs to be managed properly
         self.raw_text.edit_modified(False)
+
+    def on_script_text_change(self, event=None):
+        if not self.script_text.edit_modified():
+            return
+        script_content = self.script_text.get("1.0", tk.END)
+        self.symbol_outline_panel.update_symbols(script_content)
+        self.todo_explorer_panel.update_todos(script_content)
+        self.lint_script_text()
+        self.script_text.edit_modified(False)
+
+    def lint_script_text(self):
+        # Clear existing tags
+        self.script_text.tag_remove("trailing_whitespace", "1.0", tk.END)
+        self.script_text.tag_remove("missing_semicolon", "1.0", tk.END)
+
+        lines = self.script_text.get("1.0", tk.END).splitlines()
+        for i, line in enumerate(lines):
+            line_num_str = f"{i + 1}.0"
+
+            # Check for trailing whitespace
+            if re.search(r'\s+$', line):
+                self.script_text.tag_add("trailing_whitespace", f"{line_num_str}", f"{line_num_str} lineend")
+
+            # Check for missing semicolon (basic heuristic)
+            stripped_line = line.strip()
+            if stripped_line and not stripped_line.startswith("//") and not stripped_line.endswith(("{", "}", ";")):
+                self.script_text.tag_add("missing_semicolon", f"{line_num_str}", f"{line_num_str} lineend")
 
     def load_file(self):
         filepath = filedialog.askopenfilename(
@@ -150,9 +194,10 @@ class HabaEditor(tk.Frame):
 
         self.preview_text.config(state=tk.DISABLED)
 
-        # Update script text editor
+        # Update script text editor and explorer panels
         self.script_text.delete("1.0", tk.END)
         self.script_text.insert("1.0", haba_data.script)
+        self.on_script_text_change()
 
 
 def main():
