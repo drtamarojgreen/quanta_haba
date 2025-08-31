@@ -1,10 +1,28 @@
-# Haba C++ Editor - Design Specification
+# Haba C++ CLI Tool - Design Specification
 
-This document outlines the design for the C++ Haba Editor.
+This document outlines the design for the C++ Haba command-line tool.
 
-## 1. Extended `.haba` File Format
+## 1. Application Overview
 
-To support JavaScript editing as per the requirements, the `.haba` format will be extended to include a `<script_layer>`. The `HabaParser` will be updated to parse and build this new layer.
+The application is a native command-line tool named `haba-converter`. Its purpose is to convert `.haba` files into standard `.html` files that can be viewed in any web browser. It is built with standard C++ and has no external GUI framework dependencies.
+
+## 2. Usage
+
+The tool is run from the terminal. It takes a single argument: the path to the input `.haba` file.
+
+### Command-Line Syntax:
+```bash
+./haba-converter /path/to/your/file.haba
+```
+
+### Behavior:
+- Upon successful conversion, it will create a new file with the same name but with an `.html` extension in the same directory as the input file.
+- It will print a success message to standard output.
+- In case of errors (e.g., file not found, incorrect arguments), it will print an error message to standard error.
+
+## 3. Extended `.haba` File Format
+
+To support JavaScript editing, the `.haba` format is extended to include a `<script_layer>`. The `HabaParser` parses and builds this new layer.
 
 ### Format Structure:
 
@@ -27,47 +45,11 @@ To support JavaScript editing as per the requirements, the `.haba` format will b
 </script_layer>
 ```
 
-The `HabaData` class will be extended to include a `std::string script;` member.
+## 4. HTML Generation Logic
 
-## 2. GUI Design (Qt Framework)
+The conversion from `.haba` to `.html` follows these rules:
 
-The application will be built using the Qt 6 framework. The main window will be organized into a multi-panel layout to facilitate simultaneous editing and previewing.
-
-### Main Window Components:
-
-*   **Main Window**: A `QMainWindow` will serve as the top-level container.
-*   **Central Widget**: A `QSplitter` will divide the main window into two resizable panels: a left panel for text editing and a right panel for the WYSIWYG preview.
-*   **Menu Bar**: A standard `QMenuBar` with:
-    *   `File`: Open, Save, Save As, Exit.
-    *   `Help`: About.
-
-### Left Panel: Text Editors
-
-The left panel will contain a `QTabWidget` with three tabs:
-
-1.  **Haba View**: A `QPlainTextEdit` widget displaying the entire, raw content of the `.haba` file.
-2.  **CSS View**: A `QPlainTextEdit` widget for editing only the `<styles>` content.
-3.  **JS View**: A `QPlainTextEdit` widget for editing only the `<script_layer>` content.
-
-### Right Panel: WYSIWYG Preview
-
-The right panel will consist of a `QWebEngineView` widget from the Qt WebEngine module. This widget will render the HTML generated from the `.haba` data.
-
-## 3. Application Workflow
-
-1.  **Loading**: When a `.haba` file is opened, the `HabaParser` reads the content. The full text is loaded into the "Haba View". The extracted styles are loaded into the "CSS View", and the script content into the "JS View".
-2.  **HTML Generation**: The application will then generate an HTML document.
-    *   The content from `<content_layer>` will be placed inside the nested structure of the `<containers>`.
-    *   The `style` attributes will be applied to the containers.
-    *   The content of `<script_layer>` will be placed in a `<script>` tag in the HTML's `<head>` or at the end of the `<body>`.
-    *   **Example**:
-        *   Container: `<p>`
-        *   Style: `{ font-size: 16px; }`
-        *   Content: `Hello`
-        *   Becomes: `<p style="{ font-size: 16px; }">Hello</p>`
-3.  **Live Preview**: The generated HTML string will be set as the content of the `QWebEngineView`.
-4.  **Editing**:
-    *   Editing the "CSS View" or "JS View" will update the corresponding parts of the internal `HabaData` object. The "Haba View" will be updated with the new rebuilt `.haba` text.
-    *   Editing the "Haba View" directly will trigger a re-parse of the entire file. The "CSS View" and "JS View" will be updated with the newly parsed content.
-    *   Any change will trigger a regeneration of the HTML and update the `QWebEngineView` preview.
-5.  **Saving**: The `HabaParser::build` method will be used to generate the final `.haba` file content from the current `HabaData` object, which is then written to a file.
+1.  **HTML Structure**: A basic HTML5 document structure (`<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`) is generated.
+2.  **Styles**: The styles from the `<styles>` section are converted into CSS rules inside a `<style>` tag in the HTML `<head>`. Each container is assigned a unique class (`.haba-container-0`, `.haba-container-1`, etc.) to which the corresponding style is applied.
+3.  **Content**: The text from the `<content_layer>` is wrapped, in a nested fashion, by the tags from the `<containers>` section. The unique class is added to each container tag to link it to its style.
+4.  **Script**: The content of the `<script_layer>` is placed inside a `<script>` tag at the end of the `<body>`.
