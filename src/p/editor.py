@@ -1,8 +1,56 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont
-from haba_parser import HabaParser, HabaData
-from components import SymbolOutlinePanel, TodoExplorerPanel
+from .haba_parser import HabaParser, HabaData
+from .components import SymbolOutlinePanel, TodoExplorerPanel
+from .script_runner import ScriptRunner
 import re
+
+def lint_javascript_text(script_text_widget):
+    """
+    Performs linting on the given script text widget for JavaScript code.
+    """
+    # Clear existing tags
+    for tag in ["trailing_whitespace", "missing_semicolon", "use_of_var", "use_of_double_equals", "long_line", "many_parameters"]:
+        script_text_widget.tag_remove(tag, "1.0", tk.END)
+
+    lines = script_text_widget.get("1.0", tk.END).splitlines()
+    for i, line in enumerate(lines):
+        line_num_str = f"{i + 1}"
+
+        # Check for long lines (e.g., > 80 characters)
+        if len(line) > 80:
+            script_text_widget.tag_add("long_line", f"{line_num_str}.0", f"{line_num_str}.{len(line)}")
+
+        # Check for trailing whitespace
+        match = re.search(r'(\s+)$', line)
+        if match:
+            start_pos = match.start(1)
+            script_text_widget.tag_add("trailing_whitespace", f"{line_num_str}.{start_pos}", f"{line_num_str}.{len(line)}")
+
+        # Check for `var` keyword
+        for match in re.finditer(r'\bvar\b', line):
+            script_text_widget.tag_add("use_of_var", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
+
+        # Check for `==` or `!=`
+        comment_pos = line.find('//')
+        for match in re.finditer(r'==|!=', line):
+            # If there is a comment, and the match is inside it, ignore it
+            if comment_pos != -1 and match.start() > comment_pos:
+                continue
+            script_text_widget.tag_add("use_of_double_equals", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
+        
+        # Check for functions with too many parameters (e.g., > 5)
+        match = re.search(r'function\s*\w*\s*\(([^)]*)\)', line)
+        if match:
+            params = match.group(1).split(',')
+            if len(params) > 5:
+                script_text_widget.tag_add("many_parameters", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
+
+        # Check for missing semicolon (basic heuristic)
+        stripped_line = line.strip()
+        if stripped_line and not stripped_line.startswith(("//", "/*")) and not stripped_line.endswith(("{", "}", ";", ",")):
+            script_text_widget.tag_add("missing_semicolon", f"{line_num_str}.{len(stripped_line)-1}", f"{line_num_str}.{len(stripped_line)}")
+
 
 class HabaEditor(tk.Frame):
     def __init__(self, master=None):
@@ -11,6 +59,7 @@ class HabaEditor(tk.Frame):
         self.master.title("Haba Editor")
         self.pack(fill=tk.BOTH, expand=True)
         self.parser = HabaParser()
+        self.script_runner = ScriptRunner()
         self.language = 'javascript' # Default language for the script panel
         self.create_widgets()
 
@@ -30,6 +79,9 @@ class HabaEditor(tk.Frame):
 
         self.lint_button = tk.Button(top_frame, text="Lint", command=self.lint_script_text)
         self.lint_button.pack(side=tk.LEFT, padx=5)
+
+        self.run_button = tk.Button(top_frame, text="Run Script", command=self.run_script)
+        self.run_button.pack(side=tk.LEFT, padx=5)
 
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL)
@@ -66,6 +118,18 @@ class HabaEditor(tk.Frame):
         self.todo_explorer_panel = TodoExplorerPanel(right_notebook)
         right_notebook.add(self.todo_explorer_panel, text="TODO Explorer")
 
+        # Console Output Tab
+        console_frame = tk.Frame(right_notebook)
+        self.console_output_text = tk.Text(console_frame, wrap=tk.WORD, state=tk.DISABLED)
+        self.console_output_text.pack(fill=tk.BOTH, expand=True)
+        right_notebook.add(console_frame, text="Console Output")
+
+        # Actionable Tasks Tab
+        tasks_frame = tk.Frame(right_notebook)
+        self.tasks_listbox = tk.Listbox(tasks_frame)
+        self.tasks_listbox.pack(fill=tk.BOTH, expand=True)
+        right_notebook.add(tasks_frame, text="Actionable Tasks")
+
         # Bottom panel for script editing
         script_frame = tk.Frame(main_paned_window)
         script_label = tk.Label(script_frame, text="Script Layer (.js)")
@@ -78,6 +142,11 @@ class HabaEditor(tk.Frame):
         # Configure tags for linting
         self.script_text.tag_configure("trailing_whitespace", background="orange red")
         self.script_text.tag_configure("missing_semicolon", background="yellow")
+        self.script_text.tag_configure("use_of_var", background="#FFDDC1") # Light orange
+        self.script_text.tag_configure("use_of_double_equals", background="#C1FFD7") # Light green
+        self.script_text.tag_configure("long_line", background="#E0E0E0") # Light grey
+        self.script_text.tag_configure("many_parameters", background="#FFC1F5") # Light pink
+
 
     def on_text_change(self, event=None):
         self.render_preview()
@@ -93,22 +162,34 @@ class HabaEditor(tk.Frame):
         self.script_text.edit_modified(False)
 
     def lint_script_text(self):
-        # Clear existing tags
-        self.script_text.tag_remove("trailing_whitespace", "1.0", tk.END)
-        self.script_text.tag_remove("missing_semicolon", "1.0", tk.END)
+        lint_javascript_text(self.script_text)
 
-        lines = self.script_text.get("1.0", tk.END).splitlines()
-        for i, line in enumerate(lines):
-            line_num_str = f"{i + 1}.0"
+    def run_script(self):
+        """
+        Runs the script and updates the console and task panels.
+        """
+        haba_content = self.raw_text.get("1.0", tk.END)
+        
+        # To show that the process is running, you could disable the button
+        self.run_button.config(state=tk.DISABLED, text="Running...")
+        self.update()
 
-            # Check for trailing whitespace
-            if re.search(r'\s+$', line):
-                self.script_text.tag_add("trailing_whitespace", f"{line_num_str}", f"{line_num_str} lineend")
+        logs, tasks = self.script_runner.run_script(haba_content)
 
-            # Check for missing semicolon (basic heuristic)
-            stripped_line = line.strip()
-            if stripped_line and not stripped_line.startswith("//") and not stripped_line.endswith(("{", "}", ";")):
-                self.script_text.tag_add("missing_semicolon", f"{line_num_str}", f"{line_num_str} lineend")
+        # Re-enable the button
+        self.run_button.config(state=tk.NORMAL, text="Run Script")
+
+        # Update console output panel
+        self.console_output_text.config(state=tk.NORMAL)
+        self.console_output_text.delete("1.0", tk.END)
+        for log in logs:
+            self.console_output_text.insert(tk.END, f"{log}\n")
+        self.console_output_text.config(state=tk.DISABLED)
+
+        # Update actionable tasks panel
+        self.tasks_listbox.delete(0, tk.END)
+        for task in tasks:
+            self.tasks_listbox.insert(tk.END, f"[{task['type'].upper()}] {task['description']}")
 
     def load_file(self):
         filepath = filedialog.askopenfilename(
