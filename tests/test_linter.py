@@ -12,7 +12,7 @@ sys.modules['tkinter.filedialog'] = MagicMock()
 sys.modules['tkinter.font'] = MagicMock()
 
 # Now that tkinter is mocked, we can safely import the linter function
-from src.p.editor import lint_javascript_text
+from src.p.linter import lint_javascript
 
 class TestLinter(unittest.TestCase):
     
@@ -35,7 +35,7 @@ class TestLinter(unittest.TestCase):
         script_text_mock.get.return_value = test_script
         
         # Call the linting function directly, passing the mock widget
-        lint_javascript_text(script_text_mock)
+        lint_javascript(script_text_mock)
 
         # Get the list of calls to tag_add
         calls = script_text_mock.tag_add.call_args_list

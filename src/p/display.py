@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from components import SymbolOutlinePanel, TodoExplorerPanel
+from .components import SymbolOutlinePanel, TodoExplorerPanel
 
 class Display:
     """
@@ -9,7 +9,6 @@ class Display:
     def __init__(self, editor, master):
         """
         Initializes the Display.
-
         Args:
             editor: An instance of the HabaEditor class.
             master: The root tkinter widget.
@@ -37,6 +36,9 @@ class Display:
 
         self.lint_button = tk.Button(top_frame, text="Lint", command=self.editor.lint_script_text)
         self.lint_button.pack(side=tk.LEFT, padx=5)
+
+        self.run_button = tk.Button(top_frame, text="Run Script", command=self.editor.run_script)
+        self.run_button.pack(side=tk.LEFT, padx=5)
 
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self.master, orient=tk.VERTICAL)
@@ -73,6 +75,18 @@ class Display:
         self.todo_explorer_panel = TodoExplorerPanel(right_notebook)
         right_notebook.add(self.todo_explorer_panel, text="TODO Explorer")
 
+        # Console Output Tab
+        console_frame = tk.Frame(right_notebook)
+        self.console_output_text = tk.Text(console_frame, wrap=tk.WORD, state=tk.DISABLED)
+        self.console_output_text.pack(fill=tk.BOTH, expand=True)
+        right_notebook.add(console_frame, text="Console Output")
+
+        # Actionable Tasks Tab
+        tasks_frame = tk.Frame(right_notebook)
+        self.tasks_listbox = tk.Listbox(tasks_frame)
+        self.tasks_listbox.pack(fill=tk.BOTH, expand=True)
+        right_notebook.add(tasks_frame, text="Actionable Tasks")
+
         # Bottom panel for script editing
         script_frame = tk.Frame(main_paned_window)
         script_label = tk.Label(script_frame, text="Script Layer (.js)")
@@ -85,3 +99,7 @@ class Display:
         # Configure tags for linting
         self.script_text.tag_configure("trailing_whitespace", background="orange red")
         self.script_text.tag_configure("missing_semicolon", background="yellow")
+        self.script_text.tag_configure("use_of_var", background="#FFDDC1")
+        self.script_text.tag_configure("use_of_double_equals", background="#C1FFD7")
+        self.script_text.tag_configure("long_line", background="#E0E0E0")
+        self.script_text.tag_configure("many_parameters", background="#FFC1F5")
