@@ -42,6 +42,9 @@ class Display:
         self.run_button = tk.Button(top_frame, text="Run Script", command=self.editor.run_script)
         self.run_button.pack(side=tk.LEFT, padx=5)
 
+        self.build_button = tk.Button(top_frame, text="Build", command=self.editor.build_project)
+        self.build_button.pack(side=tk.LEFT, padx=5)
+
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self.master, orient=tk.VERTICAL)
         main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -97,6 +100,12 @@ class Display:
         self.script_text.pack(fill=tk.BOTH, expand=True)
         self.script_text.bind("<<Modified>>", self.editor.on_script_text_change)
         self.script_text.bind("<KeyRelease-quotedbl>", self.editor.on_quote_release)
+        self.script_text.bind("<Return>", self.editor.on_return_key_press)
+        self.script_text.bind("<Control-slash>", self.editor.toggle_comment)
+        self.script_text.bind("<KeyRelease>", self.editor._find_and_highlight_matching_bracket)
+        self.script_text.bind("<ButtonRelease>", self.editor._find_and_highlight_matching_bracket)
+        self.script_text.bind("<Tab>", self.editor.on_tab_key_press)
+        
         main_paned_window.add(script_frame, stretch="always")
 
         # Configure tags for linting
@@ -106,6 +115,10 @@ class Display:
         self.script_text.tag_configure("use_of_double_equals", background="#C1FFD7")
         self.script_text.tag_configure("long_line", background="#E0E0E0")
         self.script_text.tag_configure("many_parameters", background="#FFC1F5")
+        self.script_text.tag_configure("decorator", foreground="#9B59B6") # A nice purple
+        self.script_text.tag_configure("magic_comment_warning", background="yellow")
+        self.script_text.tag_configure("bracket_match", background="#D0D0D0", font=(None, -12, "bold"))
+        self.script_text.tag_configure("old_string_format", foreground="blue")
 
         # Status bar
         status_bar = tk.Frame(self.master, bd=1, relief=tk.SUNKEN)
@@ -118,3 +131,12 @@ class Display:
 
         self.venv_label = tk.Label(status_bar, text=venv_text, relief=tk.FLAT, anchor=tk.W)
         self.venv_label.pack(side=tk.LEFT, padx=5)
+
+        self.stats_label = tk.Label(status_bar, text="", relief=tk.FLAT)
+        self.stats_label.pack(side=tk.RIGHT, padx=5)
+
+        self.indent_warning_label = tk.Label(status_bar, text="", relief=tk.FLAT, fg="red")
+        self.indent_warning_label.pack(side=tk.RIGHT, padx=5)
+
+        self.main_guard_hint_label = tk.Label(status_bar, text="", relief=tk.FLAT, fg="blue")
+        self.main_guard_hint_label.pack(side=tk.RIGHT, padx=5)
