@@ -42,6 +42,9 @@ class Display:
         self.run_button = tk.Button(top_frame, text="Run Script", command=self.editor.run_script)
         self.run_button.pack(side=tk.LEFT, padx=5)
 
+        self.build_button = tk.Button(top_frame, text="Build", command=self.editor.build_project)
+        self.build_button.pack(side=tk.LEFT, padx=5)
+
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self.master, orient=tk.VERTICAL)
         main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -101,6 +104,7 @@ class Display:
         self.script_text.bind("<Control-slash>", self.editor.toggle_comment)
         self.script_text.bind("<KeyRelease>", self.editor._find_and_highlight_matching_bracket)
         self.script_text.bind("<ButtonRelease>", self.editor._find_and_highlight_matching_bracket)
+        self.script_text.bind("<Tab>", self.editor.on_tab_key_press)
         main_paned_window.add(script_frame, stretch="always")
 
         # Configure tags for linting
@@ -113,6 +117,7 @@ class Display:
         self.script_text.tag_configure("decorator", foreground="#9B59B6") # A nice purple
         self.script_text.tag_configure("magic_comment_warning", background="yellow")
         self.script_text.tag_configure("bracket_match", background="#D0D0D0", font=(None, -12, "bold"))
+        self.script_text.tag_configure("old_string_format", foreground="blue")
 
         # Status bar
         status_bar = tk.Frame(self.master, bd=1, relief=tk.SUNKEN)
@@ -128,3 +133,9 @@ class Display:
 
         self.stats_label = tk.Label(status_bar, text="", relief=tk.FLAT)
         self.stats_label.pack(side=tk.RIGHT, padx=5)
+
+        self.indent_warning_label = tk.Label(status_bar, text="", relief=tk.FLAT, fg="red")
+        self.indent_warning_label.pack(side=tk.RIGHT, padx=5)
+
+        self.main_guard_hint_label = tk.Label(status_bar, text="", relief=tk.FLAT, fg="blue")
+        self.main_guard_hint_label.pack(side=tk.RIGHT, padx=5)

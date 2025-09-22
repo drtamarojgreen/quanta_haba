@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "configurations": [
+    {
+      "name": "Default Build",
+      "request": "build",
+      "command": "make"
+    },
+    {
+      "name": "Run Python Script",
+      "request": "launch",
+      "command": "python ${file}"
+    }
+  ]
+}

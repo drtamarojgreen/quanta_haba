@@ -2,12 +2,15 @@ import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont
 import re
 import os
+import json
 from .haba_parser import HabaParser, HabaData
 from .files import FileHandler
 from .display import Display
 from .menu import MenuBar
 from .script_runner import ScriptRunner, run_python_script
 from .linter import lint_javascript
+from .imports import sort_imports_logic
+from . import search
 
 class HabaEditor(tk.Frame):
     """
@@ -33,6 +36,42 @@ class HabaEditor(tk.Frame):
         self.file_handler = FileHandler(self)
         self.display = Display(self, self, virtual_env=self.virtual_env) # Pass self (editor) and master frame
         self.menu_bar = MenuBar(self)
+        self._load_snippets()
+        self._load_launch_config()
+
+    def _load_launch_config(self):
+        """Finds and loads .editor/launch.json from the project root."""
+        self.launch_config = None
+        try:
+            # A simple upward search for the .editor directory
+            current_dir = os.getcwd()
+            while True:
+                config_dir = os.path.join(current_dir, '.editor')
+                if os.path.isdir(config_dir):
+                    config_file = os.path.join(config_dir, 'launch.json')
+                    if os.path.isfile(config_file):
+                        with open(config_file, 'r') as f:
+                            self.launch_config = json.load(f)
+                        print(f"Loaded launch configuration from {config_file}")
+                    return
+
+                parent_dir = os.path.dirname(current_dir)
+                if parent_dir == current_dir:
+                    break
+                current_dir = parent_dir
+        except Exception as e:
+            print(f"Could not load launch configuration: {e}")
+
+    def _load_snippets(self):
+        """Loads code snippets from the snippets.json file."""
+        self.snippets = {}
+        try:
+            base_dir = os.path.dirname(__file__)
+            snippet_file_path = os.path.join(base_dir, 'snippets.json')
+            with open(snippet_file_path, 'r') as f:
+                self.snippets = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Warning: Could not load snippets file. {e}")
 
     def load_file(self):
         """Delegates file loading to the FileHandler."""
@@ -50,19 +89,25 @@ class HabaEditor(tk.Frame):
         if not self.display.script_text.edit_modified():
             return
 
-        self._update_file_stats()
+        search.update_file_stats(self.display.script_text, self.display.stats_label)
 
         script_content = self.display.script_text.get("1.0", tk.END)
         self.display.symbol_outline_panel.update_symbols(script_content, self.language)
         self.display.todo_explorer_panel.update_todos(script_content, self.language)
 
         if self.language == 'python':
-            self._highlight_decorators(self.display.script_text)
-            self._highlight_trailing_whitespace(self.display.script_text)
+            search.highlight_decorators(self.display.script_text)
+            search.highlight_trailing_whitespace(self.display.script_text)
+            search.check_indentation_consistency(self.display.script_text, self.display.indent_warning_label)
+            search.check_main_guard(self.display.script_text, self.display.main_guard_hint_label)
+            search.highlight_old_string_formats(self.display.script_text)
         else:
-            # Clear python-specific tags if switching away from python
+            # Clear python-specific tags and warnings if switching away from python
             self.display.script_text.tag_remove("decorator", "1.0", tk.END)
             self.display.script_text.tag_remove("trailing_whitespace", "1.0", tk.END)
+            self.display.script_text.tag_remove("old_string_format", "1.0", tk.END)
+            self.display.indent_warning_label.config(text="")
+            self.display.main_guard_hint_label.config(text="")
             self.lint_script_text()
 
         self.display.script_text.edit_modified(False)
@@ -72,67 +117,6 @@ class HabaEditor(tk.Frame):
         Delegates linting to the lint_javascript function.
         """
         lint_javascript(self.display.script_text)
-
-    def _highlight_decorators(self, text_widget):
-        """
-        Applies syntax highlighting for Python decorators.
-        """
-        # Remove any existing tags first
-        text_widget.tag_remove("decorator", "1.0", tk.END)
-
-        # Get all lines of text
-        lines = text_widget.get("1.0", tk.END).splitlines()
-
-        for i, line in enumerate(lines):
-            # Simple regex to find lines starting with a decorator
-            if re.match(r"^\s*@", line):
-                line_num = i + 1
-                text_widget.tag_add("decorator", f"{line_num}.0", f"{line_num}.end")
-
-    def _highlight_trailing_whitespace(self, text_widget):
-        """
-        Finds and highlights trailing whitespace on each line.
-        """
-        text_widget.tag_remove("trailing_whitespace", "1.0", tk.END)
-
-        lines = text_widget.get("1.0", tk.END).splitlines()
-        for i, line in enumerate(lines):
-            match = re.search(r'(\s+)$', line)
-            if match:
-                line_num = i + 1
-                start_col = match.start(1)
-                end_col = match.end(1)
-                text_widget.tag_add("trailing_whitespace", f"{line_num}.{start_col}", f"{line_num}.{end_col}")
-
-    def _update_file_stats(self):
-        """
-        Calculates and displays file statistics (lines and words) in the status bar.
-        """
-        content = self.display.script_text.get("1.0", "end-1c") # Exclude the final newline
-
-        if not content:
-            line_count = 0
-            word_count = 0
-        else:
-            line_count = content.count('\n') + 1
-            word_count = len(content.split())
-
-        stats_text = f"Lines: {line_count} | Words: {word_count}"
-        self.display.stats_label.config(text=stats_text)
-
-    def _check_magic_comment(self, text_widget):
-        """
-        Checks for misplaced magic encoding comments and applies a warning tag.
-        """
-        text_widget.tag_remove("magic_comment_warning", "1.0", tk.END)
-        lines = text_widget.get("1.0", tk.END).splitlines()
-
-        # PEP 263: The encoding comment must be on line 1 or 2
-        for i, line in enumerate(lines):
-            line_num = i + 1
-            if re.search(r"# -\*- coding: .*- -\*-", line):
-                if line_num > 2:
-                    text_widget.tag_add("magic_comment_warning", f"{line_num}.0", f"{line_num}.end")
 
     def on_quote_release(self, event):
         """
@@ -152,48 +136,7 @@ class HabaEditor(tk.Frame):
             line_start = f"{line_num}.0"
             line_text = self.display.script_text.get(line_start, f"{line_num}.end")
             if line_text.strip() == '"""':
-                self._generate_docstring_stub()
-
-    def _generate_docstring_stub(self):
-        """
-        If the cursor is on a line after a function definition, this method
-        generates and inserts a docstring stub.
-        """
-        text_widget = self.display.script_text
-        cursor_index = text_widget.index(tk.INSERT)
-        line_num, col_num = map(int, cursor_index.split('.'))
-
-        # Get the previous line which should contain the function definition
-        if line_num <= 1:
-            return
-
-        prev_line_text = text_widget.get(f"{line_num - 1}.0", f"{line_num - 1}.end")
-
-        # Regex to parse function definition
-        match = re.search(r"^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\):", prev_line_text)
-        if not match:
-            return
-
-        func_name = match.group(1)
-        args_str = match.group(2)
-
-        # Clean up and split arguments, removing type hints and default values for simplicity
-        params = [p.split('=')[0].split(':')[0].strip() for p in args_str.split(',') if p.strip() and p.strip() != 'self']
-
-        # Build the docstring
-        indent = re.match(r"^\s*", prev_line_text).group(0)
-        stub = f'{indent}"""{func_name}: One-line summary of the function.\n\n'
-        if params:
-            stub += f"{indent}Args:\n"
-            for param in params:
-                stub += f"{indent}    {param}: Description of the parameter.\n"
-
-        stub += f"\n{indent}Returns:\n{indent}    Description of the return value.\n"
-        stub += f'{indent}"""'
-
-        # Replace the triple quotes with the full stub
-        text_widget.delete(f"{line_num}.0", f"{line_num}.end")
-        text_widget.insert(f"{line_num}.0", stub)
+                search.generate_docstring_stub(self.display.script_text)
 
     def on_return_key_press(self, event):
         """
@@ -223,50 +166,47 @@ class HabaEditor(tk.Frame):
         # Prevents the default newline behavior
         return "break"
 
-    def _find_and_highlight_matching_bracket(self, event=None):
+    def on_tab_key_press(self, event):
         """
-        Finds and highlights the matching bracket to the one under the cursor.
+        Handles Tab key presses to expand snippets or insert a standard tab.
         """
+        if self.language != 'python':
+            # For non-python languages, just insert a standard tab for now
+            self.display.script_text.insert(tk.INSERT, "    ")
+            return "break"
+
         text_widget = self.display.script_text
-        text_widget.tag_remove("bracket_match", "1.0", "end")
 
-        # Check the character immediately before the cursor
+        # Get the word before the cursor
         cursor_index = text_widget.index(tk.INSERT)
-        char_before_index = f"{cursor_index}-1c"
-        char = text_widget.get(char_before_index)
+        line_start = text_widget.index(f"{cursor_index} linestart")
+        line_text_before_cursor = text_widget.get(line_start, cursor_index)
 
-        pairs = {'(': ')', '[': ']', '{': '}'}
+        # Find the last word in the text before the cursor
+        match = re.search(r'(\w+)$', line_text_before_cursor)
 
-        if char in pairs:  # It's an opening bracket, search forward
-            match_char = pairs[char]
-            direction = 1
-        elif char in pairs.values():  # It's a closing bracket, search backward
-            match_char = [k for k, v in pairs.items() if v == char][0]
-            direction = -1
+        if not match:
+            # No word before cursor, insert a standard tab
+            text_widget.insert(tk.INSERT, "    ")
+            return "break"
+
+        keyword = match.group(1)
+
+        if keyword in self.snippets:
+            # We have a snippet match
+            snippet = self.snippets[keyword]
+            body = "\n".join(snippet['body'])
+
+            # Replace the keyword with the snippet body
+            keyword_start_index = text_widget.index(f"{cursor_index} - {len(keyword)}c")
+            text_widget.delete(keyword_start_index, cursor_index)
+            text_widget.insert(keyword_start_index, body)
+
+            return "break" # Prevent default tab behavior
         else:
-            return # Not a bracket
-
-        balance = direction
-        search_index = text_widget.index(f"{char_before_index} + {direction}c")
-
-        while True:
-            if direction == 1 and text_widget.compare(search_index, ">=", "end"):
-                break
-            if direction == -1 and text_widget.compare(search_index, "<", "1.0"):
-                break
-
-            current_char = text_widget.get(search_index)
-            if current_char == char:
-                balance += direction
-            elif current_char == match_char:
-                balance -= direction
-
-            if balance == 0:
-                text_widget.tag_add("bracket_match", char_before_index, f"{char_before_index}+1c")
-                text_widget.tag_add("bracket_match", search_index, f"{search_index}+1c")
-                break
-
-            search_index = text_widget.index(f"{search_index} + {direction}c")
+            # No snippet found, insert a normal tab
+            text_widget.insert(tk.INSERT, "    ")
+            return "break"
 
     def toggle_comment(self, event=None):
         """
@@ -316,6 +256,102 @@ class HabaEditor(tk.Frame):
                     text_widget.insert(f"{i}.{len(indent)}", "# ")
 
         return "break"  # Prevents default behavior
+
+    def sort_imports(self, event=None):
+        """
+        Wrapper to call the import sorting logic and update the text widget.
+        """
+        if self.language != 'python':
+            return "break"
+
+        text_widget = self.display.script_text
+        original_content = text_widget.get("1.0", "end-1c")
+
+        sorted_content = sort_imports_logic(original_content)
+
+        if original_content != sorted_content:
+            text_widget.delete("1.0", tk.END)
+            text_widget.insert("1.0", sorted_content)
+
+        return "break"
+
+    def upgrade_string_formatting(self, event=None):
+        """
+        Calls the f-string conversion logic and updates the text widget.
+        """
+        if self.language != 'python':
+            return "break"
+
+        text_widget = self.display.script_text
+        original_content = text_widget.get("1.0", "end-1c")
+
+        converted_content = search.convert_to_f_strings(original_content)
+
+        if original_content != converted_content:
+            text_widget.delete("1.0", tk.END)
+            text_widget.insert("1.0", converted_content)
+
+        return "break"
+
+    def build_project(self, event=None):
+        """
+        Finds the build command, displays a dry run message, and then
+        parses a sample of build error output to demonstrate error parsing.
+        """
+        console = self.display.console_output_text
+        tasks_listbox = self.display.tasks_listbox
+
+        console.config(state=tk.NORMAL)
+        console.delete("1.0", tk.END)
+        tasks_listbox.delete(0, tk.END)
+
+        if not self.launch_config or 'configurations' not in self.launch_config:
+            console.insert(tk.END, "No valid launch.json configuration found.")
+            console.config(state=tk.DISABLED)
+            return "break"
+
+        build_command = None
+        for config in self.launch_config.get('configurations', []):
+            if config.get('request') == 'build':
+                build_command = config.get('command')
+                break
+
+        if build_command:
+            message = (
+                "--- Build Dry Run ---\n"
+                "Per AI Agent instructions, compilation is prohibited.\n"
+                f"Would have run command: '{build_command}'\n\n"
+                "--- Parsing Sample Build Output ---"
+            )
+            console.insert(tk.END, message)
+
+            # Sample error output for demonstration
+            sample_output = (
+                "src/main.c:10:5: error: 'x' undeclared (first use in this function)\n"
+                "src/main.c:15:2: warning: implicit declaration of function 'printf' [-Wimplicit-function-declaration]\n"
+                "src/utils.h:5:1: error: expected ';' before '}' token"
+            )
+            console.insert(tk.END, "\n" + sample_output)
+
+            # Regex to parse 'file:line:col: type: message'
+            error_pattern = re.compile(r"^(.*?):(\d+):(\d+):\s+(error|warning):\s+(.*)$")
+
+            parsed_errors = 0
+            for line in sample_output.splitlines():
+                match = error_pattern.match(line)
+                if match:
+                    file, lnum, cnum, etype, msg = match.groups()
+                    task_text = f"[{etype.upper()}] {os.path.basename(file)}:{lnum} - {msg}"
+                    tasks_listbox.insert(tk.END, task_text)
+                    parsed_errors += 1
+
+            console.insert(tk.END, f"\n\n--- Found {parsed_errors} issues ---")
+
+        else:
+            console.insert(tk.END, "No 'build' request found in launch.json configurations.")
+
+        console.config(state=tk.DISABLED)
+        return "break"
 
     def set_language(self, language):
         """Sets the active language for the editor."""
