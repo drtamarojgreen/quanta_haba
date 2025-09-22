@@ -118,6 +118,7 @@ class HabaEditor(tk.Frame):
         """
         lint_javascript(self.display.script_text)
 
+
     def on_quote_release(self, event):
         """
         Event handler for when the user releases the quote key.
@@ -394,6 +395,7 @@ class HabaEditor(tk.Frame):
         # Replace the triple quotes with the full stub
         text_widget.delete(f"{line_num}.0", f"{line_num}.end")
         text_widget.insert(f"{line_num}.0", stub)
+
 
     def set_language(self, language):
         """Sets the active language for the editor."""
