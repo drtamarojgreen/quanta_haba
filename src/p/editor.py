@@ -5,7 +5,7 @@ from .haba_parser import HabaParser, HabaData
 from .files import FileHandler
 from .display import Display
 from .menu import MenuBar
-from .script_runner import ScriptRunner
+from .script_runner import ScriptRunner, run_python_script
 from .linter import lint_javascript
 
 class HabaEditor(tk.Frame):
@@ -59,24 +59,38 @@ class HabaEditor(tk.Frame):
         """
         lint_javascript(self.display.script_text)
 
+    def set_language(self, language):
+        """Sets the active language for the editor."""
+        self.language = language
+        # Future: Trigger re-linting or other language-specific updates
+        print(f"Language switched to: {self.language}")
+        # For now, we can just clear the old linting when switching
+        self.lint_script_text()
+
     def run_script(self):
         """
-        Runs the script and updates the console and task panels.
+        Runs the script using the appropriate runner based on the current language.
         """
-        haba_content = self.display.raw_text.get("1.0", tk.END)
-        
+        script_content = self.display.script_text.get("1.0", tk.END)
+
         self.display.run_button.config(state=tk.DISABLED, text="Running...")
         self.master.update()
 
-        logs, tasks = self.script_runner.run_script(haba_content)
+        if self.language == 'python':
+            logs, tasks = run_python_script(script_content)
+        else:  # Default to javascript
+            # The JS runner needs the full haba content, not just the script part
+            haba_content = self.display.raw_text.get("1.0", tk.END)
+            logs, tasks = self.script_runner.run_script(haba_content)
 
         self.display.run_button.config(state=tk.NORMAL, text="Run Script")
 
         # Update console output panel
         self.display.console_output_text.config(state=tk.NORMAL)
         self.display.console_output_text.delete("1.0", tk.END)
-        for log in logs:
-            self.display.console_output_text.insert(tk.END, f"{log}\n")
+        if logs:
+            # Join with newline for display
+            self.display.console_output_text.insert(tk.END, "\n".join(logs))
         self.display.console_output_text.config(state=tk.DISABLED)
 
         # Update actionable tasks panel

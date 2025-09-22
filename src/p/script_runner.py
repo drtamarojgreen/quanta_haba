@@ -1,5 +1,6 @@
 import os
 import tempfile
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from .haba_parser import HabaParser
@@ -105,3 +106,58 @@ class ScriptRunner:
                 })
         
         return tasks
+
+
+def run_python_script(script_content):
+    """
+    Runs a python script and captures its output.
+    """
+    logs = []
+    tasks = []
+    temp_py_path = None
+    try:
+        # Create a temporary file to write the script content
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.py', encoding='utf-8') as f:
+            f.write(script_content)
+            temp_py_path = f.name
+
+        # Execute the script using subprocess
+        result = subprocess.run(
+            ['python', temp_py_path],
+            capture_output=True,
+            text=True,
+            timeout=10  # 10 second timeout
+        )
+
+        # Process stdout
+        if result.stdout:
+            logs.extend(result.stdout.strip().split('\\n'))
+
+        # Process stderr
+        if result.stderr:
+            stderr_lines = result.stderr.strip().split('\\n')
+            logs.extend(stderr_lines)
+            if stderr_lines:
+                tasks.append({
+                    'type': 'error',
+                    'description': stderr_lines[-1]  # Get the last line of the error message
+                })
+
+    except subprocess.TimeoutExpired:
+        logs.append("Script execution timed out after 10 seconds.")
+        tasks.append({
+            'type': 'error',
+            'description': "Script execution timed out."
+        })
+    except Exception as e:
+        logs.append(f"Failed to run python script: {e}")
+        tasks.append({
+            'type': 'error',
+            'description': f"An unexpected error occurred while running the script: {e}"
+        })
+    finally:
+        # Clean up the temporary file
+        if temp_py_path and os.path.exists(temp_py_path):
+            os.remove(temp_py_path)
+
+    return logs, tasks
