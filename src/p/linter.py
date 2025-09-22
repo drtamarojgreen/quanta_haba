@@ -1,47 +1,59 @@
-import re
 import tkinter as tk
+import subprocess
+import json
+import os
 
 def lint_javascript(script_text_widget):
     """
-    Performs linting on the script text widget for JavaScript code.
+    Performs linting on the script text widget for JavaScript code using ESLint.
     """
-    # Clear existing tags
-    for tag in ["trailing_whitespace", "missing_semicolon", "use_of_var", "use_of_double_equals", "long_line", "many_parameters"]:
-        script_text_widget.tag_remove(tag, "1.0", tk.END)
+    # Clear existing linting tags
+    for tag in script_text_widget.tag_names():
+        if tag.startswith("lint_"):
+            script_text_widget.tag_remove(tag, "1.0", tk.END)
 
-    lines = script_text_widget.get("1.0", tk.END).splitlines()
-    for i, line in enumerate(lines):
-        line_num_str = f"{i + 1}"
+    script_content = script_text_widget.get("1.0", tk.END)
+    
+    # ESLint needs a file to work with
+    temp_filepath = "temp_script.js"
+    with open(temp_filepath, "w") as f:
+        f.write(script_content)
 
-        # Check for long lines (e.g., > 80 characters)
-        if len(line) > 80:
-            script_text_widget.tag_add("long_line", f"{line_num_str}.0", f"{line_num_str}.{len(line)}")
+    try:
+        # Path to the local eslint executable
+        eslint_path = os.path.join("node_modules", ".bin", "eslint")
+        
+        # Run ESLint and capture JSON output
+        result = subprocess.run(
+            [eslint_path, temp_filepath, "--format", "json"],
+            capture_output=True,
+            text=True,
+            check=False 
+        )
+        
+        # Configure tags for highlighting
+        script_text_widget.tag_configure("lint_error", background="#FFDDDD", underline=True, underline_color="red")
+        script_text_widget.tag_configure("lint_warning", background="#FFFFD4", underline=True, underline_color="orange")
 
-        # Check for trailing whitespace
-        match = re.search(r'(\s+)$', line)
-        if match:
-            start_pos = match.start(1)
-            script_text_widget.tag_add("trailing_whitespace", f"{line_num_str}.{start_pos}", f"{line_num_str}.{len(line)}")
+        if result.stdout:
+            lint_results = json.loads(result.stdout)
+            if lint_results and lint_results[0]['messages']:
+                for issue in lint_results[0]['messages']:
+                    line = issue.get('line', 1)
+                    col_start = issue.get('column', 1) - 1
+                    col_end = issue.get('endColumn', col_start + 1) -1
+                    
+                    tag_name = "lint_error" if issue.get('severity') == 2 else "lint_warning"
+                    
+                    # Add a tooltip-like message on hover
+                    # Note: This requires a more complex setup, for now we just highlight
+                    
+                    script_text_widget.tag_add(tag_name, f"{line}.{col_start}", f"{line}.{col_end}")
 
-        # Check for `var` keyword
-        for match in re.finditer(r'\bvar\b', line):
-            script_text_widget.tag_add("use_of_var", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
-
-        # Check for `==` or `!=`
-        comment_pos = line.find('//')
-        for match in re.finditer(r'==|!=', line):
-            if comment_pos != -1 and match.start() > comment_pos:
-                continue
-            script_text_widget.tag_add("use_of_double_equals", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
-
-        # Check for functions with too many parameters (e.g., > 5)
-        match = re.search(r'function\s*\w*\s*\(([^)]*)\)', line)
-        if match:
-            params = match.group(1).split(',')
-            if len(params) > 5:
-                script_text_widget.tag_add("many_parameters", f"{line_num_str}.{match.start()}", f"{line_num_str}.{match.end()}")
-
-        # Check for missing semicolon (basic heuristic)
-        stripped_line = line.strip()
-        if stripped_line and not stripped_line.startswith(("//", "/*")) and not stripped_line.endswith(("{", "}", ";", ",")):
-            script_text_widget.tag_add("missing_semicolon", f"{line_num_str}.{len(stripped_line)-1}", f"{line_num_str}.{len(stripped_line)}")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        # Handle cases where eslint isn't found or output isn't valid JSON
+        print(f"Error during linting: {e}")
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)

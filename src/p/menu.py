@@ -43,6 +43,13 @@ class MenuBar:
         language_menu.add_radiobutton(label="JavaScript", variable=self.language_var, value='javascript', command=self.set_language)
         language_menu.add_radiobutton(label="Python", variable=self.language_var, value='python', command=self.set_language)
 
+        # Edit menu
+        edit_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label="Toggle Comment", command=self.editor.toggle_comment, accelerator="Ctrl+/")
+        edit_menu.add_command(label="Sort Imports", command=self.editor.sort_imports)
+        edit_menu.add_command(label="Upgrade String Formatting", command=self.editor.upgrade_string_formatting)
+
         # Git menu
         git_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Git", menu=git_menu)
