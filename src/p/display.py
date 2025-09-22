@@ -125,3 +125,6 @@ class Display:
 
         self.venv_label = tk.Label(status_bar, text=venv_text, relief=tk.FLAT, anchor=tk.W)
         self.venv_label.pack(side=tk.LEFT, padx=5)
+
+        self.stats_label = tk.Label(status_bar, text="", relief=tk.FLAT)
+        self.stats_label.pack(side=tk.RIGHT, padx=5)

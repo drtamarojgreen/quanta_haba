@@ -49,6 +49,9 @@ class HabaEditor(tk.Frame):
     def on_script_text_change(self, event=None):
         if not self.display.script_text.edit_modified():
             return
+
+        self._update_file_stats()
+
         script_content = self.display.script_text.get("1.0", tk.END)
         self.display.symbol_outline_panel.update_symbols(script_content, self.language)
         self.display.todo_explorer_panel.update_todos(script_content, self.language)
@@ -100,6 +103,22 @@ class HabaEditor(tk.Frame):
                 start_col = match.start(1)
                 end_col = match.end(1)
                 text_widget.tag_add("trailing_whitespace", f"{line_num}.{start_col}", f"{line_num}.{end_col}")
+
+    def _update_file_stats(self):
+        """
+        Calculates and displays file statistics (lines and words) in the status bar.
+        """
+        content = self.display.script_text.get("1.0", "end-1c") # Exclude the final newline
+
+        if not content:
+            line_count = 0
+            word_count = 0
+        else:
+            line_count = content.count('\n') + 1
+            word_count = len(content.split())
+
+        stats_text = f"Lines: {line_count} | Words: {word_count}"
+        self.display.stats_label.config(text=stats_text)
 
     def _check_magic_comment(self, text_widget):
         """
