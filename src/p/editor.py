@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont
 import re
+import os
 from .haba_parser import HabaParser, HabaData
 from .files import FileHandler
 from .display import Display
@@ -26,10 +27,11 @@ class HabaEditor(tk.Frame):
         # Application state
         self.language = 'javascript'
         self.current_filepath = None
+        self.virtual_env = os.path.basename(os.environ.get('VIRTUAL_ENV', ''))
 
         # Modular components
         self.file_handler = FileHandler(self)
-        self.display = Display(self, self) # Pass self (editor) and master frame
+        self.display = Display(self, self, virtual_env=self.virtual_env) # Pass self (editor) and master frame
         self.menu_bar = MenuBar(self)
 
     def load_file(self):
