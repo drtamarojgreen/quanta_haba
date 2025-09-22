@@ -151,13 +151,135 @@ class HabaEditor(tk.Frame):
             stub += f"{indent}Args:\n"
             for param in params:
                 stub += f"{indent}    {param}: Description of the parameter.\n"
-        
+
         stub += f"\n{indent}Returns:\n{indent}    Description of the return value.\n"
         stub += f'{indent}"""'
 
         # Replace the triple quotes with the full stub
         text_widget.delete(f"{line_num}.0", f"{line_num}.end")
         text_widget.insert(f"{line_num}.0", stub)
+
+    def on_return_key_press(self, event):
+        """
+        Handles the return key press to implement auto-indentation for Python.
+        """
+        if self.language != 'python':
+            return # Allow default behavior for other languages
+
+        text_widget = self.display.script_text
+
+        # Get current line and its indentation
+        cursor_index = text_widget.index(tk.INSERT)
+        line_num, _ = map(int, cursor_index.split('.'))
+        current_line = text_widget.get(f"{line_num}.0", f"{line_num}.end")
+
+        indent_match = re.match(r"^(\s*)", current_line)
+        current_indent = indent_match.group(1) if indent_match else ""
+
+        # Determine next line's indentation
+        next_indent = current_indent
+        if current_line.strip().endswith(':'):
+            next_indent += "    " # Add one level of indentation
+
+        # Insert the newline and the calculated indentation
+        text_widget.insert(tk.INSERT, f"\n{next_indent}")
+
+        # Prevents the default newline behavior
+        return "break"
+
+    def _find_and_highlight_matching_bracket(self, event=None):
+        """
+        Finds and highlights the matching bracket to the one under the cursor.
+        """
+        text_widget = self.display.script_text
+        text_widget.tag_remove("bracket_match", "1.0", "end")
+
+        # Check the character immediately before the cursor
+        cursor_index = text_widget.index(tk.INSERT)
+        char_before_index = f"{cursor_index}-1c"
+        char = text_widget.get(char_before_index)
+
+        pairs = {'(': ')', '[': ']', '{': '}'}
+
+        if char in pairs:  # It's an opening bracket, search forward
+            match_char = pairs[char]
+            direction = 1
+        elif char in pairs.values():  # It's a closing bracket, search backward
+            match_char = [k for k, v in pairs.items() if v == char][0]
+            direction = -1
+        else:
+            return # Not a bracket
+
+        balance = direction
+        search_index = text_widget.index(f"{char_before_index} + {direction}c")
+
+        while True:
+            if direction == 1 and text_widget.compare(search_index, ">=", "end"):
+                break
+            if direction == -1 and text_widget.compare(search_index, "<", "1.0"):
+                break
+
+            current_char = text_widget.get(search_index)
+            if current_char == char:
+                balance += direction
+            elif current_char == match_char:
+                balance -= direction
+
+            if balance == 0:
+                text_widget.tag_add("bracket_match", char_before_index, f"{char_before_index}+1c")
+                text_widget.tag_add("bracket_match", search_index, f"{search_index}+1c")
+                break
+
+            search_index = text_widget.index(f"{search_index} + {direction}c")
+
+    def toggle_comment(self, event=None):
+        """
+        Toggles the comment state for the selected lines or the current line for Python.
+        """
+        if self.language != 'python':
+            return "break" # Only implement for Python for now
+
+        text_widget = self.display.script_text
+        try:
+            # Get the range of selected lines
+            start_index = text_widget.index("sel.first")
+            end_index = text_widget.index("sel.last")
+            start_line = int(start_index.split('.')[0])
+            # If selection ends at the start of a line, don't include that line
+            end_line_col = int(end_index.split('.')[1])
+            end_line = int(end_index.split('.')[0])
+            if end_line_col == 0:
+                end_line -= 1
+
+        except tk.TclError:
+            # If no selection, use the current line
+            start_index = text_widget.index(tk.INSERT)
+            start_line = end_line = int(start_index.split('.')[0])
+
+        # Determine if we are commenting or uncommenting based on the first line
+        first_line_content = text_widget.get(f"{start_line}.0", f"{start_line}.end")
+
+        # Heuristic: if the first non-whitespace character is '#', uncomment
+        if first_line_content.strip().startswith('#'):
+            # --- UNCOMMENT ---
+            for i in range(start_line, end_line + 1):
+                line_content = text_widget.get(f"{i}.0", f"{i}.end")
+                # Find the first '#' and remove it, keeping leading space
+                match = re.search(r"^(\s*)#\s?", line_content)
+                if match:
+                    new_line = match.group(1) + line_content[match.end(0):]
+                    text_widget.delete(f"{i}.0", f"{i}.end")
+                    text_widget.insert(f"{i}.0", new_line)
+        else:
+            # --- COMMENT ---
+            for i in range(start_line, end_line + 1):
+                line_content = text_widget.get(f"{i}.0", f"{i}.end")
+                if line_content.strip():  # Don't comment empty lines
+                    indent_match = re.match(r"^(\s*)", line_content)
+                    indent = indent_match.group(1) if indent_match else ""
+                    text_widget.insert(f"{i}.{len(indent)}", "# ")
+
+        return "break"  # Prevents default behavior
 
     def set_language(self, language):
         """Sets the active language for the editor."""
