@@ -96,6 +96,7 @@ class Display:
         self.script_text = tk.Text(script_frame, wrap=tk.WORD, undo=True)
         self.script_text.pack(fill=tk.BOTH, expand=True)
         self.script_text.bind("<<Modified>>", self.editor.on_script_text_change)
+        self.script_text.bind("<KeyRelease-quotedbl>", self.editor.on_quote_release)
         main_paned_window.add(script_frame, stretch="always")
 
         # Configure tags for linting
