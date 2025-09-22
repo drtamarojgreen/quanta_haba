@@ -15,7 +15,12 @@ class MenuBar:
             editor: An instance of the HabaEditor class.
         """
         self.editor = editor
+        self.language_var = tk.StringVar(value=self.editor.language)
         self.create_menu()
+
+    def set_language(self):
+        """Calls the editor's method to update the language."""
+        self.editor.set_language(self.language_var.get())
 
     def create_menu(self):
         """
@@ -31,6 +36,12 @@ class MenuBar:
         file_menu.add_command(label="Save", command=self.editor.save_file)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.editor.master.quit)
+
+        # Language menu
+        language_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Language", menu=language_menu)
+        language_menu.add_radiobutton(label="JavaScript", variable=self.language_var, value='javascript', command=self.set_language)
+        language_menu.add_radiobutton(label="Python", variable=self.language_var, value='python', command=self.set_language)
 
         # Git menu
         git_menu = tk.Menu(self.menubar, tearoff=0)
