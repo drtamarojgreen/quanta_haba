@@ -36,6 +36,10 @@ class FileHandler:
         """
         Opens a file dialog to save the content of the editor to a .haba file.
         """
+        # Run pre-save checks for the current language
+        if self.editor.language == 'python':
+            self.editor._check_magic_comment(self.editor.display.script_text)
+
         filepath = filedialog.asksaveasfilename(
             defaultextension="haba",
             filetypes=[("Haba Files", "*.haba"), ("All Files", "*.*")],
