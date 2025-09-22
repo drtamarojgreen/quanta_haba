@@ -105,6 +105,7 @@ class Display:
         self.script_text.bind("<KeyRelease>", self.editor._find_and_highlight_matching_bracket)
         self.script_text.bind("<ButtonRelease>", self.editor._find_and_highlight_matching_bracket)
         self.script_text.bind("<Tab>", self.editor.on_tab_key_press)
+        
         main_paned_window.add(script_frame, stretch="always")
 
         # Configure tags for linting

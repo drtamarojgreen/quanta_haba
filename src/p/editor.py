@@ -352,6 +352,48 @@ class HabaEditor(tk.Frame):
 
         console.config(state=tk.DISABLED)
         return "break"
+                self._generate_docstring_stub()
+
+    def _generate_docstring_stub(self):
+        """
+        If the cursor is on a line after a function definition, this method
+        generates and inserts a docstring stub.
+        """
+        text_widget = self.display.script_text
+        cursor_index = text_widget.index(tk.INSERT)
+        line_num, col_num = map(int, cursor_index.split('.'))
+
+        # Get the previous line which should contain the function definition
+        if line_num <= 1:
+            return
+
+        prev_line_text = text_widget.get(f"{line_num - 1}.0", f"{line_num - 1}.end")
+
+        # Regex to parse function definition
+        match = re.search(r"^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\):", prev_line_text)
+        if not match:
+            return
+
+        func_name = match.group(1)
+        args_str = match.group(2)
+
+        # Clean up and split arguments, removing type hints and default values for simplicity
+        params = [p.split('=')[0].split(':')[0].strip() for p in args_str.split(',') if p.strip() and p.strip() != 'self']
+
+        # Build the docstring
+        indent = re.match(r"^\s*", prev_line_text).group(0)
+        stub = f'{indent}"""{func_name}: One-line summary of the function.\n\n'
+        if params:
+            stub += f"{indent}Args:\n"
+            for param in params:
+                stub += f"{indent}    {param}: Description of the parameter.\n"
+
+        stub += f"\n{indent}Returns:\n{indent}    Description of the return value.\n"
+        stub += f'{indent}"""'
+
+        # Replace the triple quotes with the full stub
+        text_widget.delete(f"{line_num}.0", f"{line_num}.end")
+        text_widget.insert(f"{line_num}.0", stub)
 
     def set_language(self, language):
         """Sets the active language for the editor."""
