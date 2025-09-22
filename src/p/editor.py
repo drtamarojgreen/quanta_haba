@@ -55,9 +55,11 @@ class HabaEditor(tk.Frame):
 
         if self.language == 'python':
             self._highlight_decorators(self.display.script_text)
+            self._highlight_trailing_whitespace(self.display.script_text)
         else:
-            # Clear decorator tags if switching away from python
+            # Clear python-specific tags if switching away from python
             self.display.script_text.tag_remove("decorator", "1.0", tk.END)
+            self.display.script_text.tag_remove("trailing_whitespace", "1.0", tk.END)
             self.lint_script_text()
 
         self.display.script_text.edit_modified(False)
@@ -83,6 +85,21 @@ class HabaEditor(tk.Frame):
             if re.match(r"^\s*@", line):
                 line_num = i + 1
                 text_widget.tag_add("decorator", f"{line_num}.0", f"{line_num}.end")
+
+    def _highlight_trailing_whitespace(self, text_widget):
+        """
+        Finds and highlights trailing whitespace on each line.
+        """
+        text_widget.tag_remove("trailing_whitespace", "1.0", tk.END)
+
+        lines = text_widget.get("1.0", tk.END).splitlines()
+        for i, line in enumerate(lines):
+            match = re.search(r'(\s+)$', line)
+            if match:
+                line_num = i + 1
+                start_col = match.start(1)
+                end_col = match.end(1)
+                text_widget.tag_add("trailing_whitespace", f"{line_num}.{start_col}", f"{line_num}.{end_col}")
 
     def _check_magic_comment(self, text_widget):
         """
