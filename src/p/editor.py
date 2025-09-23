@@ -1,9 +1,11 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, font as tkFont
+from tkinter import ttk, filedialog, font as tkFont, messagebox
 from .haba_parser import HabaParser, HabaData
 from .components import SymbolOutlinePanel, TodoExplorerPanel
 from .script_runner import ScriptRunner
+from .html_exporter import HtmlExporter
 import re
+import os
 
 def lint_javascript_text(script_text_widget):
     """
@@ -60,6 +62,7 @@ class HabaEditor(tk.Frame):
         self.pack(fill=tk.BOTH, expand=True)
         self.parser = HabaParser()
         self.script_runner = ScriptRunner()
+        self.html_exporter = HtmlExporter()
         self.language = 'javascript' # Default language for the script panel
         self.create_widgets()
 
@@ -82,6 +85,9 @@ class HabaEditor(tk.Frame):
 
         self.run_button = tk.Button(top_frame, text="Run Script", command=self.run_script)
         self.run_button.pack(side=tk.LEFT, padx=5)
+
+        self.export_button = tk.Button(top_frame, text="Export HTML", command=self.export_html)
+        self.export_button.pack(side=tk.LEFT, padx=5)
 
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL)
@@ -224,6 +230,39 @@ class HabaEditor(tk.Frame):
 
         with open(filepath, "w") as f:
             f.write(final_content)
+
+    def export_html(self):
+        """
+        Exports the current .haba content to an HTML file.
+        """
+        try:
+            # Parse the current content
+            raw_content = self.raw_text.get("1.0", tk.END)
+            haba_data = self.parser.parse(raw_content)
+            
+            # Get the script content from the script editor
+            script_content = self.script_text.get("1.0", tk.END)
+            haba_data.script = script_content.strip()
+            
+            # Ask user for output file
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".html",
+                filetypes=[("HTML Files", "*.html"), ("All Files", "*.*")],
+                title="Export to HTML"
+            )
+            
+            if not filepath:
+                return
+            
+            # Export to HTML
+            title = os.path.splitext(os.path.basename(filepath))[0]
+            self.html_exporter.export_to_file(haba_data, filepath, title)
+            
+            # Show success message
+            messagebox.showinfo("Export Successful", f"HTML file exported successfully to:\n{filepath}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export HTML:\n{str(e)}")
 
     def _apply_styles(self, style_str, tag_name):
         """
