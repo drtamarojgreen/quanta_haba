@@ -1,0 +1,27 @@
+{
+  "for": {
+    "prefix": "for",
+    "body": [
+      "for item in iterable:",
+      "    pass"
+    ],
+    "description": "For Loop"
+  },
+  "if": {
+    "prefix": "if",
+    "body": [
+      "if condition:",
+      "    pass"
+    ],
+    "description": "If Statement"
+  },
+  "def": {
+    "prefix": "def",
+    "body": [
+      "def function_name(args):",
+      "    \"\"\"docstring\"\"\"",
+      "    pass"
+    ],
+    "description": "Function Definition"
+  }
+}
