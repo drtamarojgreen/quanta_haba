@@ -17,22 +17,32 @@ class QuantaDemoWindow(tk.Toplevel):
     def __init__(self, master=None):
         super().__init__(master)
         self.title("Quanta Haba Demo")
-        self.geometry("900x600")
-
+        self.geometry("1000x700")
+        
+        # Initialize variables
         self.model = None
         self.tokenizer = None
-        self.initialize_model()
-
+        self.work_products = []
+        
+        # Create widgets first, then initialize model
         self.create_widgets()
-        self.after(100, self.start_quanta_demo)
+        self.initialize_model()
+        
+        # Start demo after everything is set up
+        self.after(500, self.start_quanta_demo)
 
     def initialize_model(self):
         if not QUANTA_TISSU_AVAILABLE:
             self.log_to_console("Error: `quanta_tissu` package not found. Demo will use stubbed responses.")
             return
 
-        TOKENIZER_PATH = "/path/to/your/tokenizer"
-        CHECKPOINT_PATH = "/path/to/your/model_checkpoint.npz"
+        # Get the absolute path to the models directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        models_dir = os.path.join(project_root, "models")
+        
+        TOKENIZER_PATH = models_dir  # The tokenizer files are in the models directory
+        CHECKPOINT_PATH = os.path.join(models_dir, "quanta_tissu.npz")
 
         try:
             self.tokenizer = Tokenizer(tokenizer_path=TOKENIZER_PATH)
@@ -68,24 +78,28 @@ class QuantaDemoWindow(tk.Toplevel):
         self.prompt_text.tag_configure("highlight", background="yellow")
         top_paned_window.add(left_frame, stretch="always", width=450)
 
-        # Right panel for dashboard view
+        # Right panel for model responses
         right_frame = tk.Frame(top_paned_window)
-        dashboard_label = tk.Label(right_frame, text="Dashboard")
-        dashboard_label.pack(anchor=tk.W)
+        responses_label = tk.Label(right_frame, text="Model Responses")
+        responses_label.pack(anchor=tk.W)
         self.dashboard_listbox = tk.Listbox(right_frame)
         self.dashboard_listbox.pack(fill=tk.BOTH, expand=True)
-        top_paned_window.add(right_frame, stretch="always")
+        top_paned_window.add(right_frame, stretch="always", width=450)
 
-        # Bottom panel for console log
+        # Bottom panel for console logs
         console_frame = tk.Frame(main_paned_window)
         console_label = tk.Label(console_frame, text="Console Log")
         console_label.pack(anchor=tk.W)
         self.console_log = tk.Text(console_frame, wrap=tk.WORD, state=tk.DISABLED, height=8)
         self.console_log.pack(fill=tk.BOTH, expand=True)
         main_paned_window.add(console_frame, stretch="always")
+        
+        # Initialize work products storage
+        self.work_products = []
 
     def log_to_console(self, message):
-        if not hasattr(self, 'console_log'): # Guard against calls before widget creation
+        """Log a message to the console panel."""
+        if not hasattr(self, 'console_log'):
             return
         self.console_log.config(state=tk.NORMAL)
         self.console_log.insert(tk.END, message + "\n")
@@ -131,6 +145,9 @@ class QuantaDemoWindow(tk.Toplevel):
         self.call_quanta_model(task, task_line_index)
 
     def call_quanta_model(self, task, line_index):
+        import datetime
+        
+        # Generate model response
         if self.model and self.tokenizer:
             try:
                 model_response = generate_text(
@@ -139,21 +156,40 @@ class QuantaDemoWindow(tk.Toplevel):
                     prompt=task,
                     length=50
                 )
-                toolkit_result = f"Toolkit processed: {model_response}"
-                self.log_to_console(f"  > Prompt sent: '{task}'")
-                self.log_to_console(f"  > Model response: '{model_response}'")
-                self.log_to_console(f"  > Toolkit result: '{toolkit_result}'")
-                self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response}")
-
+                is_stubbed = False
             except Exception as e:
-                self.log_to_console(f"Model generation Error: {e}. Using stubbed response.")
                 model_response = f"Stubbed response for '{task}'"
-                self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response} (stubbed)")
+                is_stubbed = True
         else:
-            self.log_to_console(f"Model not initialized. Using stubbed response.")
             model_response = f"Stubbed response for '{task}'"
-            self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response} (stubbed)")
+            is_stubbed = True
 
+        # Create work product entry
+        work_product = {
+            "id": len(self.work_products) + 1,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "task": task,
+            "prompt": task,
+            "model_response": model_response,
+            "toolkit_result": f"Processed: {model_response}",
+            "status": "completed",
+            "is_stubbed": is_stubbed,
+            "line_index": line_index
+        }
+        
+        # Add to work products and log to console
+        self.work_products.append(work_product)
+        
+        # Log to console
+        self.log_to_console(f"  > Prompt sent: '{task}'")
+        self.log_to_console(f"  > Model response: '{model_response}'")
+        self.log_to_console(f"  > Toolkit result: 'Processed: {model_response}'")
+        
+        # Update dashboard
+        status_icon = "✓" if not is_stubbed else "⚠"
+        self.dashboard_listbox.insert(tk.END, f"{status_icon} {task} → {model_response}")
+
+        # Update prompt text
         line_num_str = f"{line_index + 1}"
         original_line = self.prompt_text.get(f"{line_num_str}.0", f"{line_num_str}.end")
         new_line = original_line.replace("TODO:", "DONE:", 1)
