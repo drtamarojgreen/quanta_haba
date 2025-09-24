@@ -6,6 +6,166 @@ from .script_runner import ScriptRunner
 from .html_exporter import HtmlExporter
 import re
 import os
+import numpy as np
+try:
+    from quanta_tissu.tisslm.core.model import QuantaTissu
+    from quanta_tissu.tisslm.core.tokenizer import Tokenizer
+    from quanta_tissu.tisslm.core.generate_text import generate_text
+    from quanta_tissu.tisslm.config import model_config
+    QUANTA_TISSU_AVAILABLE = True
+except ImportError:
+    QUANTA_TISSU_AVAILABLE = False
+
+
+class QuantaDemoWindow(tk.Toplevel):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.title("Quanta Haba Demo")
+        self.geometry("900x600")
+
+        self.model = None
+        self.tokenizer = None
+        self.initialize_model()
+
+        self.create_widgets()
+        self.after(100, self.start_quanta_demo)
+
+    def initialize_model(self):
+        if not QUANTA_TISSU_AVAILABLE:
+            self.log_to_console("Error: `quanta_tissu` package not found. Demo will use stubbed responses.")
+            return
+
+        TOKENIZER_PATH = "/path/to/your/tokenizer"
+        CHECKPOINT_PATH = "/path/to/your/model_checkpoint.npz"
+
+        try:
+            self.tokenizer = Tokenizer(tokenizer_path=TOKENIZER_PATH)
+            model_config["vocab_size"] = self.tokenizer.get_vocab_size()
+            self.model = QuantaTissu(model_config)
+            self.model.load_weights(CHECKPOINT_PATH)
+            self.log_to_console("Quanta Tissu model initialized successfully.")
+        except FileNotFoundError as e:
+            self.log_to_console(f"Model Error: {e}. Check paths. Demo will use stubbed responses.")
+            self.model = None
+            self.tokenizer = None
+        except Exception as e:
+            self.log_to_console(f"An unexpected error occurred during model initialization: {e}")
+            self.model = None
+            self.tokenizer = None
+
+
+    def create_widgets(self):
+        # Main content area with three panels
+        main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL, sashrelief=tk.RAISED)
+        main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Top pane with two horizontal panels
+        top_paned_window = tk.PanedWindow(main_paned_window, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
+        main_paned_window.add(top_paned_window, stretch="always", height=400)
+
+        # Left panel for prompt editing
+        left_frame = tk.Frame(top_paned_window)
+        prompt_label = tk.Label(left_frame, text="Prompt Editor")
+        prompt_label.pack(anchor=tk.W)
+        self.prompt_text = tk.Text(left_frame, wrap=tk.WORD, undo=True)
+        self.prompt_text.pack(fill=tk.BOTH, expand=True)
+        self.prompt_text.tag_configure("highlight", background="yellow")
+        top_paned_window.add(left_frame, stretch="always", width=450)
+
+        # Right panel for dashboard view
+        right_frame = tk.Frame(top_paned_window)
+        dashboard_label = tk.Label(right_frame, text="Dashboard")
+        dashboard_label.pack(anchor=tk.W)
+        self.dashboard_listbox = tk.Listbox(right_frame)
+        self.dashboard_listbox.pack(fill=tk.BOTH, expand=True)
+        top_paned_window.add(right_frame, stretch="always")
+
+        # Bottom panel for console log
+        console_frame = tk.Frame(main_paned_window)
+        console_label = tk.Label(console_frame, text="Console Log")
+        console_label.pack(anchor=tk.W)
+        self.console_log = tk.Text(console_frame, wrap=tk.WORD, state=tk.DISABLED, height=8)
+        self.console_log.pack(fill=tk.BOTH, expand=True)
+        main_paned_window.add(console_frame, stretch="always")
+
+    def log_to_console(self, message):
+        if not hasattr(self, 'console_log'): # Guard against calls before widget creation
+            return
+        self.console_log.config(state=tk.NORMAL)
+        self.console_log.insert(tk.END, message + "\n")
+        self.console_log.see(tk.END)
+        self.console_log.config(state=tk.DISABLED)
+
+    def start_quanta_demo(self):
+        self.log_to_console("Starting Quanta Haba Demo...")
+        try:
+            prompt_file_path = os.path.join(os.path.dirname(__file__), 'default_prompt.txt')
+            with open(prompt_file_path, "r") as f:
+                content = f.read()
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", content)
+            self.log_to_console(f"Loaded prompt file: {prompt_file_path}")
+            self.after(500, self.process_next_task)
+        except FileNotFoundError:
+            self.log_to_console(f"Error: 'default_prompt.txt' not found in 'src/p/'.")
+            self.prompt_text.insert("1.0", "Error: 'default_prompt.txt' not found in 'src/p/'.")
+
+    def process_next_task(self):
+        content = self.prompt_text.get("1.0", tk.END)
+        lines = content.splitlines()
+
+        task_line_index = -1
+        for i, line in enumerate(lines):
+            if line.strip().startswith("TODO:"):
+                task_line_index = i
+                break
+
+        if task_line_index == -1:
+            self.log_to_console("All tasks completed!")
+            return
+
+        line_text = lines[task_line_index]
+        task = line_text.strip().replace("TODO:", "").strip()
+        line_num_str = f"{task_line_index + 1}"
+
+        self.prompt_text.tag_remove("highlight", "1.0", tk.END)
+        self.prompt_text.tag_add("highlight", f"{line_num_str}.0", f"{line_num_str}.end")
+        self.log_to_console(f"Processing task: {task}")
+
+        self.call_quanta_model(task, task_line_index)
+
+    def call_quanta_model(self, task, line_index):
+        if self.model and self.tokenizer:
+            try:
+                model_response = generate_text(
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    prompt=task,
+                    length=50
+                )
+                toolkit_result = f"Toolkit processed: {model_response}"
+                self.log_to_console(f"  > Prompt sent: '{task}'")
+                self.log_to_console(f"  > Model response: '{model_response}'")
+                self.log_to_console(f"  > Toolkit result: '{toolkit_result}'")
+                self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response}")
+
+            except Exception as e:
+                self.log_to_console(f"Model generation Error: {e}. Using stubbed response.")
+                model_response = f"Stubbed response for '{task}'"
+                self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response} (stubbed)")
+        else:
+            self.log_to_console(f"Model not initialized. Using stubbed response.")
+            model_response = f"Stubbed response for '{task}'"
+            self.dashboard_listbox.insert(tk.END, f"✓ {task} → {model_response} (stubbed)")
+
+        line_num_str = f"{line_index + 1}"
+        original_line = self.prompt_text.get(f"{line_num_str}.0", f"{line_num_str}.end")
+        new_line = original_line.replace("TODO:", "DONE:", 1)
+        self.prompt_text.delete(f"{line_num_str}.0", f"{line_num_str}.end")
+        self.prompt_text.insert(f"{line_num_str}.0", new_line)
+
+        self.after(1000, self.process_next_task)
+
 
 def lint_javascript_text(script_text_widget):
     """
@@ -89,6 +249,9 @@ class HabaEditor(tk.Frame):
         self.export_button = tk.Button(top_frame, text="Export HTML", command=self.export_html)
         self.export_button.pack(side=tk.LEFT, padx=5)
 
+        self.quanta_demo_button = tk.Button(top_frame, text="Quanta Demo", command=self.launch_quanta_demo)
+        self.quanta_demo_button.pack(side=tk.LEFT, padx=5)
+
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL)
         main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -166,6 +329,9 @@ class HabaEditor(tk.Frame):
         self.todo_explorer_panel.update_todos(script_content, self.language)
         self.lint_script_text()
         self.script_text.edit_modified(False)
+
+    def launch_quanta_demo(self):
+        demo_window = QuantaDemoWindow(self.master)
 
     def lint_script_text(self):
         lint_javascript_text(self.script_text)
