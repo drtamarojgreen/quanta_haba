@@ -2,12 +2,12 @@ import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont, messagebox
 import re
 import os
+import json
 import numpy as np
 try:
     from quanta_tissu.tisslm.core.model import QuantaTissu
     from quanta_tissu.tisslm.core.tokenizer import Tokenizer
     from quanta_tissu.tisslm.core.generate_text import generate_text
-    from quanta_tissu.tisslm.config import model_config
     QUANTA_TISSU_AVAILABLE = True
 except ImportError:
     QUANTA_TISSU_AVAILABLE = False
@@ -36,15 +36,19 @@ class QuantaDemoWindow(tk.Toplevel):
             self.log_to_console("Error: `quanta_tissu` package not found. Demo will use stubbed responses.")
             return
 
-        # Get the absolute path to the models directory
+        # Get the absolute path to the configuration directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
-        models_dir = os.path.join(project_root, "models")
+        config_dir = os.path.join(project_root, "configuration")
         
-        TOKENIZER_PATH = models_dir  # The tokenizer files are in the models directory
-        CHECKPOINT_PATH = os.path.join(models_dir, "quanta_tissu.npz")
+        TOKENIZER_PATH = config_dir  # The tokenizer files are in the configuration directory
+        CHECKPOINT_PATH = os.path.join(config_dir, "quanta_tissu.npz")
+        CONFIG_PATH = os.path.join(config_dir, "model_config.json")
 
         try:
+            with open(CONFIG_PATH, 'r') as f:
+                model_config = json.load(f)
+
             self.tokenizer = Tokenizer(tokenizer_path=TOKENIZER_PATH)
             model_config["vocab_size"] = self.tokenizer.get_vocab_size()
             self.model = QuantaTissu(model_config)
