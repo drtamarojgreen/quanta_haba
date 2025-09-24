@@ -18,6 +18,7 @@ from test_haba_parser import TestHabaParser, TestHabaData, TestHabaParserBDD
 from test_html_exporter import TestHtmlExporter, TestHtmlExporterBDD, TestHtmlExporterIntegration
 from test_script_runner import TestScriptRunner, TestRunPythonScript, TestScriptRunnerBDD, TestScriptRunnerIntegration
 from test_components import TestSymbolOutlinePanel, TestTodoExplorerPanel, TestComponentsBDD, TestComponentsIntegration
+from test_editor import TestQuantaDemoWindow
 
 
 class TestResults:
@@ -141,6 +142,9 @@ def run_all_tests():
         (TestTodoExplorerPanel, "TodoExplorerPanel Unit Tests"),
         (TestComponentsBDD, "Components BDD Tests"),
         (TestComponentsIntegration, "Components Integration Tests"),
+
+        # Editor Tests
+        (TestQuantaDemoWindow, "QuantaDemoWindow Unit Tests"),
     ]
     
     # Run each test suite
@@ -164,10 +168,11 @@ def run_specific_tests():
     print("=" * 70)
     
     categories = {
-        '1': ('Unit Tests', [TestHabaParser, TestHabaData, TestHtmlExporter, 
-                            TestScriptRunner, TestRunPythonScript, 
-                            TestSymbolOutlinePanel, TestTodoExplorerPanel]),
-        '2': ('BDD Tests', [TestHabaParserBDD, TestHtmlExporterBDD, 
+        '1': ('Unit Tests', [TestHabaParser, TestHabaData, TestHtmlExporter,
+                            TestScriptRunner, TestRunPythonScript,
+                            TestSymbolOutlinePanel, TestTodoExplorerPanel,
+                            TestQuantaDemoWindow]),
+        '2': ('BDD Tests', [TestHabaParserBDD, TestHtmlExporterBDD,
                            TestScriptRunnerBDD, TestComponentsBDD]),
         '3': ('Integration Tests', [TestHtmlExporterIntegration, 
                                    TestScriptRunnerIntegration, 
