@@ -1,2 +1,4 @@
 -e git+https://github.com/drtamarojgreen/quanta_tissu
 numpy
+requests
+requests-oauthlib
