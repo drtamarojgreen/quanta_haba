@@ -533,8 +533,9 @@ class HabaEditor(tk.Frame):
 
 def main():
     root = tk.Tk()
-    root.geometry("1000x700")
-    app = HabaEditor(master=root)
+    # Hide the root window
+    root.withdraw()
+    app = QuantaDemoWindow(master=root)
     app.mainloop()
 
 if __name__ == '__main__':
