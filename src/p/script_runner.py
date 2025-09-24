@@ -3,7 +3,10 @@ import tempfile
 import subprocess
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from .haba_parser import HabaParser
+try:
+    from .haba_parser import HabaParser
+except ImportError:
+    from haba_parser import HabaParser
 
 class ScriptRunner:
     """

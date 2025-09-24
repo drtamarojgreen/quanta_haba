@@ -1,11 +1,19 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont, messagebox
-from .haba_parser import HabaParser, HabaData
-from .components import SymbolOutlinePanel, TodoExplorerPanel
-from .script_runner import ScriptRunner
-from .html_exporter import HtmlExporter
 import re
 import os
+
+# Handle both relative and absolute imports
+try:
+    from .haba_parser import HabaParser, HabaData
+    from .components import SymbolOutlinePanel, TodoExplorerPanel
+    from .script_runner import ScriptRunner
+    from .html_exporter import HtmlExporter
+except ImportError:
+    from haba_parser import HabaParser, HabaData
+    from components import SymbolOutlinePanel, TodoExplorerPanel
+    from script_runner import ScriptRunner
+    from html_exporter import HtmlExporter
 
 def lint_javascript_text(script_text_widget):
     """
