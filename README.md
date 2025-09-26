@@ -1,3 +1,5 @@
+![QuantaHaba Logo](docs/images/logo.jpg)
+
 QuantaHaba 🌱
 
 QuantaHaba is a Velo-integrated, LLM-powered design editor that transforms the way creators build interactive web experiences. It’s not just another website editor — it’s a safe, structured habitat for ideas to grow.
