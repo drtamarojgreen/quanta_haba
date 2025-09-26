@@ -6,6 +6,10 @@ QuantaHaba is a Velo-integrated, LLM-powered design editor that transforms the w
 
 Think: Figma meets Wix Velo meets ChatGPT, but with the Quanta ecosystem’s brain-inspired touch.
 
+## Demo Video
+
+[![Watch the video](https://img.youtube.com/vi/3Mglddunz5s/0.jpg)](https://www.youtube.com/watch?v=3Mglddunz5s)
+
 ✨ Features
 
 LLM-Driven Design Suggestions
@@ -80,7 +84,7 @@ Export/import between Wix, Figma, and GitHub
 
 🧠 Philosophy
 
-QuantaHaba is inspired by growth environments — just like a greenhouse helps plants bloom, a design habitat nurtures creativity without chaos.
+QuantaHaba is inspired by a growth environment — just like a greenhouse helps plants bloom, a design habitat nurtures creativity without chaos.
 It brings structure to exploration, combining:
 
 Cognitive systems thinking (from Quanta_Tissu)
