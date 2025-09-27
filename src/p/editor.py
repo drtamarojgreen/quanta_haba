@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont, messagebox
 import re
 import os
+import sys
 import json
 import numpy as np
 try:
@@ -643,6 +644,22 @@ class HabaEditor(tk.Frame):
 def main():
     root = tk.Tk()
     app = HabaEditor(master=root)
+
+    # Check for command-line arguments
+    if len(sys.argv) > 1:
+        filepath = sys.argv[1]
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "r") as f:
+                    content = f.read()
+                app.raw_text.delete("1.0", tk.END)
+                app.raw_text.insert("1.0", content)
+                app.render_preview()
+            except Exception as e:
+                messagebox.showerror("File Load Error", f"Could not load file: {e}")
+        else:
+            messagebox.showwarning("File Not Found", f"The specified file does not exist: {filepath}")
+
     root.mainloop()
 
 if __name__ == '__main__':
