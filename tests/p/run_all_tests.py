@@ -10,6 +10,9 @@ import os
 import time
 from io import StringIO
 
+# Add the directory of this script to the path to find other test modules
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # Add src/p to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'p'))
 
