@@ -10,6 +10,8 @@ import os
 import json
 import time
 from datetime import datetime, timedelta
+import unittest
+from unittest.mock import patch, MagicMock
 
 # Add the src/p directory to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -242,12 +244,191 @@ def test_configuration_validation():
         print(f"✗ Configuration validation failed: {e}")
         return False
 
+
+class TestOAuthBDD(unittest.TestCase):
+    """BDD-style tests for the OAuthClient"""
+
+    def setUp(self):
+        """Set up a mock configuration and client for each test"""
+        self.config = {
+            "client_id": "test_client_id",
+            "client_secret": "test_client_secret",
+            "authorization_url": "https://example.com/oauth/authorize",
+            "token_url": "https://example.com/oauth/token",
+            "api_base_url": "https://api.example.com",
+            "scopes": ["read", "write"],
+            "redirect_uri": "http://localhost:8080/callback",
+            "use_pkce": True
+        }
+        # Use a mock for keyring to avoid actual system interaction
+        self.keyring_patcher = patch('oauth_client.keyring', autospec=True)
+        self.mock_keyring = self.keyring_patcher.start()
+        # Reset mocks for each test
+        self.mock_keyring.reset_mock()
+
+        self.client = OAuthClient(self.config, provider_name="test_provider")
+
+    def tearDown(self):
+        """Clean up after each test"""
+        if hasattr(self.client, '_httpd') and self.client._httpd:
+            if hasattr(self.client._httpd, 'shutdown'):
+                self.client._httpd.shutdown()
+        self.client.logout()
+        self.keyring_patcher.stop()
+
+    @patch('oauth_client.webbrowser.open')
+    @patch('oauth_client.HTTPServer')
+    @patch('oauth_client.OAuth2Session')
+    def test_given_unauthenticated_user_when_auth_succeeds_then_client_is_authenticated(self, mock_oauth_session, mock_http_server, mock_webbrowser):
+        """
+        Given: An unauthenticated user with a valid client configuration
+        When: The user completes the authentication flow successfully
+        Then: The client becomes authenticated and stores the tokens
+        """
+        # Given: Mock the OAuth2Session behavior
+        mock_session_instance = mock_oauth_session.return_value
+        mock_session_instance.authorization_url.return_value = ("https://example.com/auth?state=xyz", "test_state_123")
+        mock_session_instance.fetch_token.return_value = {
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 3600
+        }
+
+        # Given: Mock the local HTTP server to return a valid auth code
+        mock_server_instance = mock_http_server.return_value
+        mock_server_instance.auth_code = "test_auth_code"
+        mock_server_instance.state = "test_state_123" # Must match the state from authorization_url
+        mock_server_instance.error = None
+
+        # When: The user initiates and completes the authorization flow
+        httpd = self.client.initiate_authorization()
+        success = self.client.finish_authorization(httpd)
+
+        # Then: The flow should be successful
+        self.assertTrue(success)
+        self.assertTrue(self.client.is_authenticated())
+
+        # Then: The browser should have been opened with the correct URL
+        mock_webbrowser.assert_called_once_with("https://example.com/auth?state=xyz")
+
+        # Then: Tokens should have been fetched with the correct parameters
+        mock_session_instance.fetch_token.assert_called_once()
+
+        # Then: The new tokens should be stored securely
+        self.mock_keyring.set_password.assert_called_once()
+        args, _ = self.mock_keyring.set_password.call_args
+        self.assertEqual(args[0], 'test_quanta_haba')
+        self.assertEqual(args[1], 'test_provider_tokens')
+        stored_data = json.loads(args[2])
+        self.assertEqual(stored_data['access_token'], 'new_access_token')
+
+    @patch('oauth_client.webbrowser.open')
+    @patch('oauth_client.HTTPServer')
+    @patch('oauth_client.OAuth2Session')
+    def test_given_user_cancels_when_auth_fails_then_client_remains_unauthenticated(self, mock_oauth_session, mock_http_server, mock_webbrowser):
+        """
+        Given: An unauthenticated user
+        When: The user cancels the authentication, and the provider returns an error
+        Then: The client handles the error gracefully and remains unauthenticated
+        """
+        # Given: Mock the OAuth2Session behavior
+        mock_session_instance = mock_oauth_session.return_value
+        mock_session_instance.authorization_url.return_value = ("https://example.com/auth?state=xyz", "test_state_123")
+
+        # Given: Mock the local HTTP server to return an error
+        mock_server_instance = mock_http_server.return_value
+        mock_server_instance.auth_code = None
+        mock_server_instance.state = "test_state_123"
+        mock_server_instance.error = "access_denied"  # User cancelled
+
+        # When: The user initiates and completes the authorization flow
+        httpd = self.client.initiate_authorization()
+        success = self.client.finish_authorization(httpd)
+
+        # Then: The flow should fail
+        self.assertFalse(success)
+        self.assertFalse(self.client.is_authenticated())
+
+        # Then: The token exchange should not have been attempted
+        mock_session_instance.fetch_token.assert_not_called()
+
+        # Then: No tokens should be stored
+        self.mock_keyring.set_password.assert_not_called()
+
+    @patch('oauth_client.requests')
+    @patch.object(OAuthClient, '_refresh_token')
+    def test_given_expired_token_when_api_call_fails_then_token_is_refreshed(self, mock_refresh_token, mock_requests):
+        """
+        Given: A user is authenticated, but the access token has expired
+        When: The user makes an API call that fails with a 401 error
+        Then: The client automatically refreshes the token and retries the call successfully
+        """
+        # Given: An authenticated client with a mocked session
+        self.client.token = {"access_token": "expired_token"}
+        self.client.session = MagicMock(spec=OAuth2Session)
+
+        # Given: The API call will fail once with a 401, then succeed
+        mock_response_401 = MagicMock()
+        mock_response_401.status_code = 401
+
+        mock_response_200 = MagicMock()
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {"result": "success"}
+
+        mock_http_error = mock_requests.exceptions.HTTPError()
+        mock_http_error.response = mock_response_401
+
+        self.client.session.post.side_effect = [
+            mock_http_error,
+            mock_response_200
+        ]
+
+        # Given: The token refresh process will succeed
+        mock_refresh_token.return_value = True
+
+        # When: The user makes an API call
+        response = self.client.call_model("test prompt")
+
+        # Then: The token refresh mechanism should have been triggered
+        mock_refresh_token.assert_called_once()
+
+        # Then: The API should have been called twice (original + retry)
+        self.assertEqual(self.client.session.post.call_count, 2)
+
+        # Then: The final response should be the successful one
+        self.assertEqual(response, {"result": "success"})
+
+    def test_given_authenticated_user_when_logout_then_tokens_are_deleted(self):
+        """
+        Given: A user is authenticated
+        When: The user calls the logout method
+        Then: All local tokens and session data are cleared
+        """
+        # Given: An authenticated client with stored tokens
+        self.client.token = {"access_token": "some_token"}
+        self.client.session = MagicMock()
+        self.client.token_storage = MagicMock(spec=SecureTokenStorage)
+
+        # When: The user logs out
+        self.client.logout()
+
+        # Then: The client's internal state should be cleared
+        self.assertIsNone(self.client.token)
+        self.assertIsNone(self.client.session)
+        self.assertFalse(self.client.is_authenticated())
+
+        # Then: The stored tokens should be deleted
+        self.client.token_storage.delete_tokens.assert_called_once_with(self.client.provider_name)
+
+
 def run_all_tests():
-    """Run all OAuth tests"""
+    """Run all OAuth tests, including procedural and BDD-style unittests."""
     print("Starting OAuth Implementation Tests")
     print("=" * 50)
-    
-    tests = [
+
+    # --- Running procedural tests ---
+    print("\n--- Running Procedural Tests ---")
+    procedural_tests = [
         ("Secure Token Storage", test_secure_token_storage),
         ("OAuth Client Creation", test_oauth_client_creation),
         ("PKCE Generation", test_pkce_generation),
@@ -255,22 +436,45 @@ def run_all_tests():
         ("Configuration Validation", test_configuration_validation)
     ]
     
-    passed = 0
-    failed = 0
+    procedural_passed = 0
+    procedural_failed = 0
     
-    for test_name, test_func in tests:
+    for test_name, test_func in procedural_tests:
         print(f"\nRunning: {test_name}")
         try:
             if test_func():
                 print(f"✓ {test_name} PASSED")
-                passed += 1
+                procedural_passed += 1
             else:
                 print(f"✗ {test_name} FAILED")
-                failed += 1
+                procedural_failed += 1
         except Exception as e:
             print(f"✗ {test_name} FAILED with exception: {e}")
-            failed += 1
+            procedural_failed += 1
     
+    # --- Running BDD tests ---
+    print("\n--- Running BDD Unittests ---")
+    # Temporarily add a placeholder test to ensure the suite runs.
+    # This will be removed when actual tests are added.
+    if not any(name.startswith('test_') for name in dir(TestOAuthBDD)):
+        def test_placeholder(self): self.assertTrue(True)
+        TestOAuthBDD.test_placeholder = test_placeholder
+
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestOAuthBDD)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    # Remove placeholder if it was added
+    if hasattr(TestOAuthBDD, 'test_placeholder'):
+        delattr(TestOAuthBDD, 'test_placeholder')
+
+    bdd_passed = result.testsRun - len(result.failures) - len(result.errors)
+    bdd_failed = len(result.failures) + len(result.errors)
+
+    # --- Summary ---
+    passed = procedural_passed + bdd_passed
+    failed = procedural_failed + bdd_failed
+
     print("\n" + "=" * 50)
     print("Test Results Summary:")
     print(f"✓ Passed: {passed}")
