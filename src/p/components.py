@@ -16,7 +16,8 @@ class SymbolOutlinePanel(tk.Frame):
         self.patterns = {
             'python': re.compile(r"^\s*(?:def|class)\s+([a-zA-Z0-9_]+)", re.MULTILINE),
             'cpp': re.compile(r"^(?:class|struct)\s+([a-zA-Z0-9_]+)|(?:[a-zA-Z0-9_:]+)\s+([a-zA-Z0-9_]+)\s*\([^)]*\)\s*(?:const)?\s*{", re.MULTILINE),
-            'javascript': re.compile(r"^(?:function\s+([a-zA-Z0-9_]+)\s*\(|class\s+([A-Z][a-zA-Z0-9_]*))", re.MULTILINE)
+            'javascript': re.compile(r"^(?:function\s+([a-zA-Z0-9_]+)\s*\(|class\s+([A-Z][a-zA-Z0-9_]*)|(?:const|let|var)\s+([a-zA-Z0-9_]+)\s*=\s*\(.*\)\s*=>)", re.MULTILINE),
+            'java': re.compile(r"^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:final\s+)?(?:class|interface)\s+([a-zA-Z0-9_]+)|(?:[a-zA-Z0-9_<>\[\]]+)\s+([a-zA-Z0-9_]+)\s*\([^)]*\)\s*{", re.MULTILINE)
         }
 
     def update_symbols(self, text_content, language):
@@ -47,8 +48,13 @@ class TodoExplorerPanel(tk.Frame):
 
         self.patterns = {
             'python': re.compile(r"#.*(TODO|FIXME):(.*)", re.IGNORECASE),
-            'cpp': re.compile(r"//.*(TODO|FIXME):(.*)", re.IGNORECASE),
-            'javascript': re.compile(r"//.*(TODO|FIXME):(.*)", re.IGNORECASE)
+            'c_style': re.compile(r"//.*(TODO|FIXME):(.*)|/\*[\s\S]*?(TODO|FIXME):([\s\S]*?)\*/", re.IGNORECASE)
+        }
+        self.lang_map = {
+            'python': 'python',
+            'cpp': 'c_style',
+            'javascript': 'c_style',
+            'java': 'c_style'
         }
 
     def update_todos(self, text_content, language):
@@ -56,11 +62,25 @@ class TodoExplorerPanel(tk.Frame):
         Scans the text content for TODO/FIXME comments and updates the listbox.
         """
         self.listbox.delete(0, tk.END)
-        pattern = self.patterns.get(language)
+
+        lang_type = self.lang_map.get(language)
+        if not lang_type:
+            return
+
+        pattern = self.patterns.get(lang_type)
         if not pattern:
             return
 
-        for i, line in enumerate(text_content.splitlines()):
-            match = pattern.search(line)
-            if match:
-                self.listbox.insert(tk.END, f"{i+1}: {match.group(1).upper()}{match.group(2)}")
+        for match in pattern.finditer(text_content):
+            line_num = text_content.count('\n', 0, match.start()) + 1
+
+            if match.group(1):  # Matched // comment
+                keyword = match.group(1)
+                message = match.group(2)
+            else:  # Matched /* */ comment
+                keyword = match.group(3)
+                message = match.group(4)
+
+            # Clean up message from multi-line comments
+            message = ' '.join(message.strip().replace('*/', '').split())
+            self.listbox.insert(tk.END, f"{line_num}: {keyword.upper()}: {message}")
