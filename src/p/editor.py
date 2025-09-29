@@ -2,12 +2,13 @@ import tkinter as tk
 from tkinter import ttk, filedialog, font as tkFont, messagebox
 import re
 import os
+import sys
+import json
 import numpy as np
 try:
     from quanta_tissu.tisslm.core.model import QuantaTissu
     from quanta_tissu.tisslm.core.tokenizer import Tokenizer
     from quanta_tissu.tisslm.core.generate_text import generate_text
-    from quanta_tissu.tisslm.config import model_config
     QUANTA_TISSU_AVAILABLE = True
 except ImportError:
     QUANTA_TISSU_AVAILABLE = False
@@ -28,7 +29,7 @@ except ImportError:
 
 
 class QuantaDemoWindow(tk.Toplevel):
-    def __init__(self, master=None):
+    def __init__(self, master=None, external_model_client=None):
         super().__init__(master)
         self.title("Quanta Haba Demo")
         self.geometry("1000x700")
@@ -54,15 +55,19 @@ class QuantaDemoWindow(tk.Toplevel):
             self.log_to_console("Error: `quanta_tissu` package not found. Demo will use stubbed responses.")
             return
 
-        # Get the absolute path to the models directory
+        # Get the absolute path to the configuration directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
-        models_dir = os.path.join(project_root, "models")
+        config_dir = os.path.join(project_root, "configuration")
         
-        TOKENIZER_PATH = models_dir  # The tokenizer files are in the models directory
-        CHECKPOINT_PATH = os.path.join(models_dir, "quanta_tissu.npz")
+        TOKENIZER_PATH = config_dir  # The tokenizer files are in the configuration directory
+        CHECKPOINT_PATH = os.path.join(config_dir, "quanta_tissu.npz")
+        CONFIG_PATH = os.path.join(config_dir, "model_config.json")
 
         try:
+            with open(CONFIG_PATH, 'r') as f:
+                model_config = json.load(f)
+
             self.tokenizer = Tokenizer(tokenizer_path=TOKENIZER_PATH)
             model_config["vocab_size"] = self.tokenizer.get_vocab_size()
             self.model = QuantaTissu(model_config)
@@ -163,9 +168,27 @@ class QuantaDemoWindow(tk.Toplevel):
     def call_quanta_model(self, task, line_index):
         import datetime
         
-        # Generate model response
-        if self.model and self.tokenizer:
+        model_response = f"Stubbed response for '{task}'"
+        is_stubbed = True
+
+        # Try external model first if available and authenticated
+        if self.external_model_client and self.external_model_client.is_authenticated():
             try:
+                self.log_to_console("Calling external model...")
+                response_data = self.external_model_client.call_model(task)
+                # Assuming the API returns a structure like {'choices': [{'text': '...'}]}
+                model_response = response_data.get('choices', [{}])[0].get('text', 'No response text found.')
+                is_stubbed = False
+                self.log_to_console("External model call successful.")
+            except Exception as e:
+                self.log_to_console(f"External model error: {e}. Falling back.")
+                model_response = f"External model failed: {e}"
+                is_stubbed = True
+
+        # Fallback to local model
+        elif self.model and self.tokenizer:
+            try:
+                self.log_to_console("Calling local Quanta Tissu model...")
                 model_response = generate_text(
                     model=self.model,
                     tokenizer=self.tokenizer,
@@ -177,8 +200,8 @@ class QuantaDemoWindow(tk.Toplevel):
                 model_response = f"Stubbed response for '{task}'"
                 is_stubbed = True
         else:
-            model_response = f"Stubbed response for '{task}'"
-            is_stubbed = True
+            # This is the final fallback
+            self.log_to_console("No models available. Using stubbed response.")
 
         # Create work product entry
         work_product = {
@@ -427,6 +450,55 @@ def lint_javascript_text(script_text_widget):
             script_text_widget.tag_add("missing_semicolon", f"{line_num_str}.{len(stripped_line)-1}", f"{line_num_str}.{len(stripped_line)}")
 
 
+class ConfigDialog(tk.Toplevel):
+    def __init__(self, parent, initial_config=None):
+        super().__init__(parent)
+        self.title("External Model Configuration")
+        self.transient(parent)
+        self.grab_set()
+
+        self.result = None
+        self.initial_config = initial_config or {}
+
+        self.entries = {}
+        self.create_widgets()
+        self.wait_window(self)
+
+    def create_widgets(self):
+        frame = tk.Frame(self, padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        fields = {
+            "client_id": "Client ID:",
+            "client_secret": "Client Secret:",
+            "authorization_url": "Authorization URL:",
+            "token_url": "Token URL:",
+            "api_base_url": "API Base URL:"
+        }
+
+        for i, (key, text) in enumerate(fields.items()):
+            label = tk.Label(frame, text=text)
+            label.grid(row=i, column=0, sticky=tk.W, pady=2)
+            entry = tk.Entry(frame, width=50)
+            entry.grid(row=i, column=1, sticky=tk.EW, pady=2)
+            entry.insert(0, self.initial_config.get(key, ""))
+            self.entries[key] = entry
+
+        frame.grid_columnconfigure(1, weight=1)
+
+        button_frame = tk.Frame(frame)
+        button_frame.grid(row=len(fields), column=0, columnspan=2, pady=10)
+
+        save_button = tk.Button(button_frame, text="Save", command=self._save_config)
+        save_button.pack(side=tk.LEFT, padx=5)
+        cancel_button = tk.Button(button_frame, text="Cancel", command=self.destroy)
+        cancel_button.pack(side=tk.LEFT, padx=5)
+
+    def _save_config(self):
+        self.result = {key: entry.get() for key, entry in self.entries.items()}
+        self.destroy()
+
+
 class HabaEditor(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
@@ -437,8 +509,16 @@ class HabaEditor(tk.Frame):
         self.script_runner = ScriptRunner()
         self.html_exporter = HtmlExporter()
         self.language = 'javascript' # Default language for the script panel
+        self.external_model_client = None
+        self.external_model_config = {}
         self.create_widgets()
         self.menu_bar = MenuBar(self)
+
+    def open_config_dialog(self, event=None):
+        dialog = ConfigDialog(self, self.external_model_config)
+        if dialog.result:
+            self.external_model_config = dialog.result
+            messagebox.showinfo("Configuration Saved", "External model configuration has been updated.")
 
     def create_widgets(self):
         # Main content area with three panels
@@ -505,6 +585,9 @@ class HabaEditor(tk.Frame):
         self.script_text.tag_configure("long_line", background="#E0E0E0") # Light grey
         self.script_text.tag_configure("many_parameters", background="#FFC1F5") # Light pink
 
+        # Bind keyboard shortcut for config dialog
+        self.master.bind("<Control-m>", self.open_config_dialog)
+
 
     def on_text_change(self, event=None):
         self.render_preview()
@@ -519,8 +602,29 @@ class HabaEditor(tk.Frame):
         self.lint_script_text()
         self.script_text.edit_modified(False)
 
+    def connect_external_model(self):
+        if not self.external_model_config:
+            messagebox.showwarning("Configuration Missing", "Please configure the external model first (Ctrl+M).")
+            return
+        try:
+            self.external_model_client = ExternalModelClient(self.external_model_config)
+            httpd = self.external_model_client.initiate_authorization()
+            self.after(100, self.check_auth_status, httpd)
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred during authentication: {e}")
+
+    def check_auth_status(self, httpd):
+        if httpd.auth_code:
+            httpd.shutdown()
+            if self.external_model_client.finish_authorization(httpd):
+                messagebox.showinfo("Success", "External model authenticated successfully.")
+            else:
+                messagebox.showwarning("Authentication Failed", "Could not authenticate with the external model.")
+        else:
+            self.after(100, self.check_auth_status, httpd)
+
     def launch_quanta_demo(self):
-        demo_window = QuantaDemoWindow(self.master)
+        demo_window = QuantaDemoWindow(self.master, external_model_client=self.external_model_client)
 
     def lint_script_text(self):
         lint_javascript_text(self.script_text)
@@ -678,10 +782,24 @@ class HabaEditor(tk.Frame):
 
 def main():
     root = tk.Tk()
-    # Hide the root window
-    root.withdraw()
-    app = QuantaDemoWindow(master=root)
-    app.mainloop()
+    app = HabaEditor(master=root)
+
+    # Check for command-line arguments
+    if len(sys.argv) > 1:
+        filepath = sys.argv[1]
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "r") as f:
+                    content = f.read()
+                app.raw_text.delete("1.0", tk.END)
+                app.raw_text.insert("1.0", content)
+                app.render_preview()
+            except Exception as e:
+                messagebox.showerror("File Load Error", f"Could not load file: {e}")
+        else:
+            messagebox.showwarning("File Not Found", f"The specified file does not exist: {filepath}")
+
+    root.mainloop()
 
 if __name__ == '__main__':
     main()
