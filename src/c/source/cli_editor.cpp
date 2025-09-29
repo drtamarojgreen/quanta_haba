@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <cctype>
+#include <limits>
 
 // Represents the state of the editor
 struct EditorState {
@@ -40,7 +41,14 @@ void display_file(const EditorState& state) {
         }
     }
     std::cout << "-----------------------" << std::endl;
-    std::cout << "Commands: :q, :w, :n, :p, :comment, :guard" << std::endl;
+    std::cout << "Commands:" << std::endl;
+    std::cout << "  :q        - Quit the editor" << std::endl;
+    std::cout << "  :w        - Write (save) the file" << std::endl;
+    std::cout << "  :n / :p   - Navigate down / up" << std::endl;
+    std::cout << "  :comment  - Toggle comment on the current line" << std::endl;
+    std::cout << "  :guard    - Add include guards (for .h/.hpp files)" << std::endl;
+    std::cout << "  :demo     - Run the Quanta model demo on TODOs" << std::endl;
+    std::cout << "  (any other text) - Insert line below cursor" << std::endl;
 }
 
 void save_file(const EditorState& state) {
@@ -87,6 +95,51 @@ void add_include_guard(EditorState& state) {
     state.cursor_line += 2;
 }
 
+/**
+ * @brief Simulates a call to the Quanta model.
+ * @param task The task description to send to the model.
+ * @return A stubbed model response.
+ */
+std::string call_quanta_model(const std::string& task) {
+    std::cout << "  > Model processing task: '" << task << "'" << std::endl;
+    // In a real scenario, this would involve a complex operation.
+    // Here, we just return a fixed, stubbed response.
+    return "Completed: " + task;
+}
+
+/**
+ * @brief Runs the model demo on the currently loaded lines.
+ * @param state The current editor state.
+ */
+void run_model_demo(EditorState& state) {
+    std::cout << "--- Running Quanta Model Demo ---" << std::endl;
+    bool task_found = false;
+    for (size_t i = 0; i < state.lines.size(); ++i) {
+        std::string& line = state.lines[i];
+        size_t todo_pos = line.find("TODO:");
+        if (todo_pos != std::string::npos) {
+            task_found = true;
+            std::string task = line.substr(todo_pos + 5);
+            task.erase(0, task.find_first_not_of(" \t")); // Trim whitespace
+
+            std::string model_response = call_quanta_model(task);
+
+            line.replace(todo_pos, 5, "DONE:");
+            line += " // " + model_response;
+        }
+    }
+
+    if (task_found) {
+        std::cout << "--- Model Demo Finished ---" << std::endl;
+    } else {
+        std::cout << "No 'TODO:' tasks found to process." << std::endl;
+    }
+
+    // Pause to allow user to see the output
+    std::cout << "Press Enter to continue..." << std::endl;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+}
+
 void process_command(const std::string& command, EditorState& state, bool& running) {
     if (command[0] == ':') {
         std::string cmd = command.substr(1);
@@ -106,6 +159,8 @@ void process_command(const std::string& command, EditorState& state, bool& runni
             toggle_comment(state);
         } else if (cmd == "guard") {
             add_include_guard(state);
+        } else if (cmd == "demo") {
+            run_model_demo(state);
         } else {
             std::cout << "Unknown command: " << cmd << std::endl;
         }
