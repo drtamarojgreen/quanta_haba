@@ -29,64 +29,86 @@ class TestHabaParser(unittest.TestCase):
         
     def test_parse_content_only(self):
         """Test parsing content without presentation or script layers"""
-        content = "Hello World\nThis is a test"
+        content = "<content_layer>Hello World\nThis is a test</content_layer>"
         result = self.parser.parse(content)
         
-        self.assertEqual(result.content, content)
+        self.assertEqual(result.content, "Hello World\nThis is a test")
         self.assertEqual(len(result.presentation_items), 0)
         self.assertEqual(result.script, "")
         
     def test_parse_with_presentation_layer(self):
         """Test parsing content with presentation layer"""
-        haba_content = """Hello World
-This is a test
-
----PRESENTATION---
-div: color: 'blue'; font-size: '16px'
-p: color: 'red'; font-weight: 'bold'
+        haba_content = """
+<content_layer>
+    Hello World
+    This is a test
+</content_layer>
+<presentation_layer>
+    <containers>
+        div
+        p
+    </containers>
+    <styles>
+        color: 'blue'; font-size: '16px'
+        color: 'red'; font-weight: 'bold'
+    </styles>
+</presentation_layer>
 """
         result = self.parser.parse(haba_content)
         
-        self.assertEqual(result.content.strip(), "Hello World\nThis is a test")
+        self.assertEqual(result.content.strip(), "Hello World\n    This is a test")
         self.assertEqual(len(result.presentation_items), 2)
         self.assertEqual(result.presentation_items[0], ("div", "color: 'blue'; font-size: '16px'"))
         self.assertEqual(result.presentation_items[1], ("p", "color: 'red'; font-weight: 'bold'"))
         
     def test_parse_with_script_layer(self):
         """Test parsing content with script layer"""
-        haba_content = """Hello World
-
----SCRIPT---
-console.log('Hello from script');
-alert('Test');
+        haba_content = """
+<content_layer>
+    Hello World
+</content_layer>
+<script_layer>
+    console.log('Hello from script');
+    alert('Test');
+</script_layer>
 """
         result = self.parser.parse(haba_content)
         
         self.assertEqual(result.content.strip(), "Hello World")
-        self.assertEqual(result.script.strip(), "console.log('Hello from script');\nalert('Test');")
+        self.assertEqual(result.script.strip(), "console.log('Hello from script');\n    alert('Test');")
         
     def test_parse_complete_haba_file(self):
         """Test parsing complete .haba file with all layers"""
-        haba_content = """Welcome to QuantaHaba!
-This is a sample document.
-Let's test all features.
-
----PRESENTATION---
-h1: color: 'blue'; font-size: '24px'
-p: color: 'black'; font-size: '14px'
-div: background: 'lightgray'; padding: '10px'
-
----SCRIPT---
-console.log('Document loaded');
-function greet() {
-    alert('Hello from QuantaHaba!');
-}
-greet();
+        haba_content = """
+<content_layer>
+    Welcome to QuantaHaba!
+    This is a sample document.
+    Let's test all features.
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        p
+        div
+    </containers>
+    <styles>
+        color: 'blue'; font-size: '24px'
+        color: 'black'; font-size: '14px'
+        background: 'lightgray'; padding: '10px'
+    </styles>
+</presentation_layer>
+<script_layer>
+    console.log('Document loaded');
+    function greet() {
+        alert('Hello from QuantaHaba!');
+    }
+    greet();
+</script_layer>
 """
         result = self.parser.parse(haba_content)
         
         # Check content
-        expected_content = "Welcome to QuantaHaba!\nThis is a sample document.\nLet's test all features."
+        expected_content = "Welcome to QuantaHaba!\n    This is a sample document.\n    Let's test all features."
         self.assertEqual(result.content.strip(), expected_content)
         
         # Check presentation items
@@ -97,10 +119,10 @@ greet();
         
         # Check script
         expected_script = """console.log('Document loaded');
-function greet() {
-    alert('Hello from QuantaHaba!');
-}
-greet();"""
+    function greet() {
+        alert('Hello from QuantaHaba!');
+    }
+    greet();"""
         self.assertEqual(result.script.strip(), expected_script)
         
     def test_build_from_haba_data(self):
@@ -118,27 +140,43 @@ greet();"""
         result = self.parser.build(haba_data)
         
         # Verify structure
+        self.assertIn("<content_layer>", result)
         self.assertIn("Test content\nSecond line", result)
-        self.assertIn("---PRESENTATION---", result)
-        self.assertIn("h1: color: 'red'", result)
-        self.assertIn("p: font-size: '12px'", result)
-        self.assertIn("---SCRIPT---", result)
+        self.assertIn("</content_layer>", result)
+        self.assertIn("<presentation_layer>", result)
+        self.assertIn("h1", result)
+        self.assertIn("color: 'red'", result)
+        self.assertIn("p", result)
+        self.assertIn("font-size: '12px'", result)
+        self.assertIn("</presentation_layer>", result)
+        self.assertIn("<script_layer>", result)
         self.assertIn("console.log('test');", result)
+        self.assertIn("</script_layer>", result)
         
     def test_parse_build_roundtrip(self):
         """Test that parsing and building are inverse operations"""
-        original_content = """Test Document
-Line two
-Line three
-
----PRESENTATION---
-h1: color: 'blue'
-p: font-size: '14px'
-span: font-weight: 'bold'
-
----SCRIPT---
-console.log('roundtrip test');
-var x = 42;
+        original_content = """
+<content_layer>
+    Test Document
+    Line two
+    Line three
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        p
+        span
+    </containers>
+    <styles>
+        color: 'blue'
+        font-size: '14px'
+        font-weight: 'bold'
+    </styles>
+</presentation_layer>
+<script_layer>
+    console.log('roundtrip test');
+    var x = 42;
+</script_layer>
 """
         # Parse then build
         parsed = self.parser.parse(original_content)
@@ -206,11 +244,20 @@ class TestHabaParserBDD(unittest.TestCase):
         Then: Extracts presentation items correctly
         """
         # Given
-        content_with_presentation = """Hello World
-
----PRESENTATION---
-h1: color: 'blue'; font-size: '20px'
-p: color: 'green'
+        content_with_presentation = """
+<content_layer>
+    Hello World
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        p
+    </containers>
+    <styles>
+        color: 'blue'; font-size: '20px'
+        color: 'green'
+    </styles>
+</presentation_layer>
 """
         
         # When
@@ -231,13 +278,16 @@ p: color: 'green'
         Then: Extracts JavaScript code correctly
         """
         # Given
-        content_with_script = """Test Content
-
----SCRIPT---
-function test() {
-    console.log('Hello');
-}
-test();
+        content_with_script = """
+<content_layer>
+    Test Content
+</content_layer>
+<script_layer>
+    function test() {
+        console.log('Hello');
+    }
+    test();
+</script_layer>
 """
         
         # When
@@ -265,13 +315,18 @@ test();
         result = self.parser.build(haba_data)
         
         # Then
-        self.assertIn("Sample Content", result)
-        self.assertIn("Second Line", result)
-        self.assertIn("---PRESENTATION---", result)
-        self.assertIn("h1: color: 'red'", result)
-        self.assertIn("p: font-size: '14px'", result)
-        self.assertIn("---SCRIPT---", result)
+        self.assertIn("<content_layer>", result)
+        self.assertIn("Sample Content\nSecond Line", result)
+        self.assertIn("</content_layer>", result)
+        self.assertIn("<presentation_layer>", result)
+        self.assertIn("h1", result)
+        self.assertIn("color: 'red'", result)
+        self.assertIn("p", result)
+        self.assertIn("font-size: '14px'", result)
+        self.assertIn("</presentation_layer>", result)
+        self.assertIn("<script_layer>", result)
         self.assertIn("console.log('built');", result)
+        self.assertIn("</script_layer>", result)
         
     def test_given_malformed_presentation_when_parsed_then_handles_gracefully(self):
         """
@@ -280,11 +335,18 @@ test();
         Then: Handles errors gracefully without crashing
         """
         # Given
-        malformed_content = """Content
-
----PRESENTATION---
-invalid_line_without_colon
-h1 color: 'blue'  # missing colon after tag
+        malformed_content = """
+<content_layer>
+    Content
+</content_layer>
+<presentation_layer>
+    <containers>
+        div
+    </containers>
+    <styles>
+        # This is a malformed style
+    </styles>
+</presentation_layer>
 """
         
         # When & Then (should not raise exception)

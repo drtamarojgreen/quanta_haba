@@ -61,3 +61,44 @@ Once a model is selected, the following process should be followed for integrati
 - Develop the integration on a separate feature branch.
 - Thoroughly test the entire end-to-end flow, from initial user authorization to successful API calls and token refreshes.
 - Validate that all credentials are being stored securely and are never exposed in logs or plain text files.
+
+## 3. OAuth Implementation
+
+This section provides a step-by-step explanation of how the OAuth 2.0 integration works within the Quanta Haba editor. The goal is to allow the editor to securely access external language models on behalf of the user.
+
+### Step 1: The User Initiates the Connection
+
+It all starts with the user. Inside the Quanta Haba editor, the user will find an option in the menu to connect to an external model (e.g., "Connect to GPT-4"). When the user clicks this, the editor kicks off the OAuth 2.0 authorization process.
+
+### Step 2: The Editor Opens a Browser Window
+
+The editor, through the `ExternalModelClient` class, opens the user's default web browser and directs them to the external model provider's website (e.g., Google, OpenAI). The web address includes special information, like the editor's `Client ID`, which tells the provider which application is trying to connect.
+
+### Step 3: The User Grants Permission
+
+On the provider's website, the user is asked to log in to their account (if they aren't already). They are then presented with a consent screen that asks if they want to grant the Quanta Haba editor permission to access their data (in this case, to use the language model). By clicking "Allow" or "Authorize," the user is giving their consent.
+
+### Step 4: The Provider Sends a Temporary Code
+
+Once the user grants permission, the provider's website redirects the user's browser back to a special, pre-configured web address that the editor is listening to. This address is usually `http://localhost:8080/callback`. Appended to this address is a temporary `authorization code`.
+
+To catch this code, the editor starts a small, temporary web server on the user's computer. This server's only job is to listen for this one specific redirect and grab the authorization code from the URL.
+
+### Step 5: The Editor Exchanges the Code for an Access Token
+
+Now that the editor has the temporary authorization code, it sends a direct, secure, behind-the-scenes request to the provider's server. This request includes the authorization code, the editor's `Client ID`, and a `Client Secret` (which is a secret password that only the editor and the provider know).
+
+If everything checks out, the provider returns two important pieces of information: an `access token` and a `refresh token`.
+
+*   **Access Token:** This is a short-lived token that gives the editor permission to make API calls to the language model on the user's behalf. It's like a temporary key card.
+*   **Refresh Token:** This is a long-lived token that can be used to get a new access token when the old one expires. This way, the user doesn't have to go through the whole login and consent process every time the access token expires.
+
+### Step 6: Securely Storing the Tokens
+
+The editor needs to store the access and refresh tokens so it can use them later. For security, these tokens are not stored in a plain text file. Instead, they are stored in the operating system's secure credential manager (like the Windows Credential Manager or macOS Keychain). This is the same place your web browser stores your saved passwords.
+
+### Step 7: Making Authenticated API Calls
+
+Now, whenever the user wants to use the external language model, the editor retrieves the access token from the secure storage and includes it in the API request. The provider sees the valid access token and processes the request.
+
+If the access token has expired, the `ExternalModelClient` automatically uses the refresh token to get a new access token from the provider, and then retries the API request. This all happens seamlessly in the background, without the user even knowing.

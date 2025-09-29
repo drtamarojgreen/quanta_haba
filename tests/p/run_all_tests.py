@@ -18,7 +18,8 @@ from test_haba_parser import TestHabaParser, TestHabaData, TestHabaParserBDD
 from test_html_exporter import TestHtmlExporter, TestHtmlExporterBDD, TestHtmlExporterIntegration
 from test_script_runner import TestScriptRunner, TestRunPythonScript, TestScriptRunnerBDD, TestScriptRunnerIntegration
 from test_components import TestSymbolOutlinePanel, TestTodoExplorerPanel, TestComponentsBDD, TestComponentsIntegration
-from test_editor import TestQuantaDemoWindow
+from test_editor import TestLintJavaScriptText, TestLintJavaScriptTextBDD
+from test_quanta_demo import TestQuantaDemoWindow
 
 
 class TestResults:

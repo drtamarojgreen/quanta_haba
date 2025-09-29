@@ -20,12 +20,14 @@ try:
     from .components import SymbolOutlinePanel, TodoExplorerPanel
     from .script_runner import ScriptRunner
     from .html_exporter import HtmlExporter
+    from .oauth_client import OAuthClient
 except ImportError:
     from menu import MenuBar
     from haba_parser import HabaParser, HabaData
     from components import SymbolOutlinePanel, TodoExplorerPanel
     from script_runner import ScriptRunner
     from html_exporter import HtmlExporter
+    from oauth_client import OAuthClient
 
 
 class QuantaDemoWindow(tk.Toplevel):
@@ -41,6 +43,7 @@ class QuantaDemoWindow(tk.Toplevel):
         self.is_automating = False
         self.is_recording_macro = tk.BooleanVar(value=False)
         self.recorded_macro = []
+        self.external_model_client = external_model_client
         
         # Create widgets first, then initialize model
         self.create_widgets()
@@ -176,8 +179,15 @@ class QuantaDemoWindow(tk.Toplevel):
             try:
                 self.log_to_console("Calling external model...")
                 response_data = self.external_model_client.call_model(task)
-                # Assuming the API returns a structure like {'choices': [{'text': '...'}]}
-                model_response = response_data.get('choices', [{}])[0].get('text', 'No response text found.')
+                # Handle different response formats
+                if 'choices' in response_data:
+                    model_response = response_data['choices'][0].get('text', 'No response text found.')
+                elif 'response' in response_data:
+                    model_response = response_data['response']
+                elif 'text' in response_data:
+                    model_response = response_data['text']
+                else:
+                    model_response = str(response_data)
                 is_stubbed = False
                 self.log_to_console("External model call successful.")
             except Exception as e:
@@ -401,6 +411,86 @@ class QuantaDemoWindow(tk.Toplevel):
     def launch_haba_editor(self):
         haba_editor = HabaEditor(tk.Toplevel(self.master))
 
+    def open_config_dialog(self, event=None):
+        """Open OAuth configuration dialog for demo window"""
+        if not hasattr(self, 'external_model_config'):
+            self.external_model_config = {}
+        
+        dialog = ConfigDialog(self, self.external_model_config)
+        if dialog.result:
+            self.external_model_config = dialog.result
+            messagebox.showinfo("Configuration Saved", "External model OAuth configuration has been updated.")
+
+    def connect_external_model(self):
+        """Connect to external model using OAuth for demo window"""
+        if not hasattr(self, 'external_model_config') or not self.external_model_config:
+            messagebox.showwarning("Configuration Missing", "Please configure the external model first (External Models > Configure OAuth...).")
+            return
+        
+        try:
+            # Create OAuth client with enhanced configuration
+            self.external_model_client = OAuthClient(self.external_model_config)
+            
+            # Check if already authenticated
+            if self.external_model_client.is_authenticated():
+                status = self.external_model_client.get_auth_status()
+                messagebox.showinfo("Already Authenticated", 
+                    f"External model is already authenticated.\n"
+                    f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
+                return
+            
+            # Start OAuth flow
+            self.log_to_console("Starting OAuth authentication...")
+            httpd = self.external_model_client.initiate_authorization()
+            self.after(100, self.check_auth_status, httpd)
+            
+        except Exception as e:
+            messagebox.showerror("Authentication Error", f"Failed to start authentication: {e}")
+            self.log_to_console(f"Authentication error: {e}")
+
+    def check_auth_status(self, httpd):
+        """Check OAuth authentication status with timeout for demo window"""
+        if httpd.auth_code or httpd.error:
+            # Authentication completed (success or failure)
+            success = self.external_model_client.finish_authorization(httpd)
+            if success:
+                status = self.external_model_client.get_auth_status()
+                messagebox.showinfo("Authentication Successful", 
+                    f"External model authenticated successfully!\n"
+                    f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
+                self.log_to_console("OAuth authentication successful.")
+            else:
+                messagebox.showwarning("Authentication Failed", 
+                    "Could not authenticate with the external model. Please check your configuration.")
+                self.log_to_console("OAuth authentication failed.")
+        else:
+            # Still waiting for callback
+            self.after(100, self.check_auth_status, httpd)
+
+    def disconnect_external_model(self):
+        """Disconnect and clear OAuth tokens for demo window"""
+        if hasattr(self, 'external_model_client') and self.external_model_client:
+            self.external_model_client.logout()
+            messagebox.showinfo("Disconnected", "External model has been disconnected and tokens cleared.")
+            self.log_to_console("External model disconnected.")
+        else:
+            messagebox.showinfo("Not Connected", "No external model connection to disconnect.")
+
+    def check_auth_status_info(self):
+        """Display current authentication status for demo window"""
+        if not hasattr(self, 'external_model_client') or not self.external_model_client:
+            messagebox.showinfo("Authentication Status", "No external model client configured.")
+            return
+        
+        status = self.external_model_client.get_auth_status()
+        if status["authenticated"]:
+            expires_info = ""
+            if "expires_in_minutes" in status:
+                expires_info = f"\nToken expires in {status['expires_in_minutes']} minutes"
+            messagebox.showinfo("Authentication Status", f"✓ Authenticated{expires_info}")
+        else:
+            messagebox.showinfo("Authentication Status", "✗ Not authenticated")
+
 # --- HabaEditor and other classes remain unchanged for now ---
 
 def lint_javascript_text(script_text_widget):
@@ -453,7 +543,7 @@ def lint_javascript_text(script_text_widget):
 class ConfigDialog(tk.Toplevel):
     def __init__(self, parent, initial_config=None):
         super().__init__(parent)
-        self.title("External Model Configuration")
+        self.title("External Model OAuth Configuration")
         self.transient(parent)
         self.grab_set()
 
@@ -468,26 +558,47 @@ class ConfigDialog(tk.Toplevel):
         frame = tk.Frame(self, padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True)
 
+        # Add instructions
+        instructions = tk.Label(frame, text="Configure OAuth 2.0 settings for external model provider:", 
+                               font=("Arial", 10, "bold"))
+        instructions.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+
         fields = {
             "client_id": "Client ID:",
             "client_secret": "Client Secret:",
             "authorization_url": "Authorization URL:",
             "token_url": "Token URL:",
-            "api_base_url": "API Base URL:"
+            "api_base_url": "API Base URL:",
+            "scopes": "Scopes (comma-separated):",
+            "redirect_uri": "Redirect URI:",
+            "use_pkce": "Use PKCE (True/False):"
         }
 
-        for i, (key, text) in enumerate(fields.items()):
+        for i, (key, text) in enumerate(fields.items(), start=1):
             label = tk.Label(frame, text=text)
             label.grid(row=i, column=0, sticky=tk.W, pady=2)
-            entry = tk.Entry(frame, width=50)
+            
+            if key == "use_pkce":
+                # Special handling for boolean field
+                var = tk.BooleanVar(value=self.initial_config.get(key, True))
+                entry = tk.Checkbutton(frame, variable=var)
+                entry.var = var  # Store reference to variable
+            else:
+                entry = tk.Entry(frame, width=50)
+                default_values = {
+                    "scopes": "read",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "use_pkce": "True"
+                }
+                entry.insert(0, self.initial_config.get(key, default_values.get(key, "")))
+            
             entry.grid(row=i, column=1, sticky=tk.EW, pady=2)
-            entry.insert(0, self.initial_config.get(key, ""))
             self.entries[key] = entry
 
         frame.grid_columnconfigure(1, weight=1)
 
         button_frame = tk.Frame(frame)
-        button_frame.grid(row=len(fields), column=0, columnspan=2, pady=10)
+        button_frame.grid(row=len(fields) + 1, column=0, columnspan=2, pady=10)
 
         save_button = tk.Button(button_frame, text="Save", command=self._save_config)
         save_button.pack(side=tk.LEFT, padx=5)
@@ -495,7 +606,16 @@ class ConfigDialog(tk.Toplevel):
         cancel_button.pack(side=tk.LEFT, padx=5)
 
     def _save_config(self):
-        self.result = {key: entry.get() for key, entry in self.entries.items()}
+        self.result = {}
+        for key, entry in self.entries.items():
+            if key == "use_pkce":
+                self.result[key] = entry.var.get()
+            elif key == "scopes":
+                # Convert comma-separated string to list
+                scopes_str = entry.get().strip()
+                self.result[key] = [s.strip() for s in scopes_str.split(",")] if scopes_str else ["read"]
+            else:
+                self.result[key] = entry.get()
         self.destroy()
 
 
@@ -606,22 +726,70 @@ class HabaEditor(tk.Frame):
         if not self.external_model_config:
             messagebox.showwarning("Configuration Missing", "Please configure the external model first (Ctrl+M).")
             return
+        
         try:
-            self.external_model_client = ExternalModelClient(self.external_model_config)
+            # Create OAuth client with enhanced configuration
+            self.external_model_client = OAuthClient(self.external_model_config)
+            
+            # Check if already authenticated
+            if self.external_model_client.is_authenticated():
+                status = self.external_model_client.get_auth_status()
+                messagebox.showinfo("Already Authenticated", 
+                    f"External model is already authenticated.\n"
+                    f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
+                return
+            
+            # Start OAuth flow
+            self.log_to_console("Starting OAuth authentication...")
             httpd = self.external_model_client.initiate_authorization()
             self.after(100, self.check_auth_status, httpd)
+            
         except Exception as e:
-            messagebox.showerror("Error", f"An error occurred during authentication: {e}")
+            messagebox.showerror("Authentication Error", f"Failed to start authentication: {e}")
+            self.log_to_console(f"Authentication error: {e}")
 
     def check_auth_status(self, httpd):
-        if httpd.auth_code:
-            httpd.shutdown()
-            if self.external_model_client.finish_authorization(httpd):
-                messagebox.showinfo("Success", "External model authenticated successfully.")
+        """Check OAuth authentication status with timeout"""
+        if httpd.auth_code or httpd.error:
+            # Authentication completed (success or failure)
+            success = self.external_model_client.finish_authorization(httpd)
+            if success:
+                status = self.external_model_client.get_auth_status()
+                messagebox.showinfo("Authentication Successful", 
+                    f"External model authenticated successfully!\n"
+                    f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
+                self.log_to_console("OAuth authentication successful.")
             else:
-                messagebox.showwarning("Authentication Failed", "Could not authenticate with the external model.")
+                messagebox.showwarning("Authentication Failed", 
+                    "Could not authenticate with the external model. Please check your configuration.")
+                self.log_to_console("OAuth authentication failed.")
         else:
+            # Still waiting for callback
             self.after(100, self.check_auth_status, httpd)
+
+    def disconnect_external_model(self):
+        """Disconnect and clear OAuth tokens"""
+        if self.external_model_client:
+            self.external_model_client.logout()
+            messagebox.showinfo("Disconnected", "External model has been disconnected and tokens cleared.")
+            self.log_to_console("External model disconnected.")
+        else:
+            messagebox.showinfo("Not Connected", "No external model connection to disconnect.")
+
+    def check_auth_status_info(self):
+        """Display current authentication status"""
+        if not self.external_model_client:
+            messagebox.showinfo("Authentication Status", "No external model client configured.")
+            return
+        
+        status = self.external_model_client.get_auth_status()
+        if status["authenticated"]:
+            expires_info = ""
+            if "expires_in_minutes" in status:
+                expires_info = f"\nToken expires in {status['expires_in_minutes']} minutes"
+            messagebox.showinfo("Authentication Status", f"✓ Authenticated{expires_info}")
+        else:
+            messagebox.showinfo("Authentication Status", "✗ Not authenticated")
 
     def launch_quanta_demo(self):
         demo_window = QuantaDemoWindow(self.master, external_model_client=self.external_model_client)
@@ -635,14 +803,16 @@ class HabaEditor(tk.Frame):
         """
         haba_content = self.raw_text.get("1.0", tk.END)
         
-        # To show that the process is running, you could disable the button
-        self.run_button.config(state=tk.DISABLED, text="Running...")
-        self.update()
+        # Check if run_button exists before trying to use it
+        if hasattr(self, 'run_button'):
+            self.run_button.config(state=tk.DISABLED, text="Running...")
+            self.update()
 
         logs, tasks = self.script_runner.run_script(haba_content)
 
-        # Re-enable the button
-        self.run_button.config(state=tk.NORMAL, text="Run Script")
+        # Re-enable the button if it exists
+        if hasattr(self, 'run_button'):
+            self.run_button.config(state=tk.NORMAL, text="Run Script")
 
         # Update console output panel
         self.console_output_text.config(state=tk.NORMAL)
@@ -655,6 +825,16 @@ class HabaEditor(tk.Frame):
         self.tasks_listbox.delete(0, tk.END)
         for task in tasks:
             self.tasks_listbox.insert(tk.END, f"[{task['type'].upper()}] {task['description']}")
+
+    def log_to_console(self, message):
+        """Log a message to the console panel for HabaEditor"""
+        if hasattr(self, 'console_output_text'):
+            self.console_output_text.config(state=tk.NORMAL)
+            self.console_output_text.insert(tk.END, message + "\n")
+            self.console_output_text.see(tk.END)
+            self.console_output_text.config(state=tk.DISABLED)
+        else:
+            print(f"Console: {message}")  # Fallback to stdout
 
     def load_file(self):
         filepath = filedialog.askopenfilename(

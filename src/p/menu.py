@@ -60,6 +60,15 @@ class MenuBar:
         llm_menu.add_command(label="Clear Console Log", command=self.window.clear_console)
         llm_menu.add_command(label="Re-initialize Model", command=self.window.initialize_model)
 
+        # --- External Models Menu ---
+        external_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="External Models", menu=external_menu)
+        external_menu.add_command(label="Configure OAuth...", command=self.window.open_config_dialog, accelerator="Ctrl+M")
+        external_menu.add_command(label="Connect to External Model", command=self.window.connect_external_model)
+        external_menu.add_command(label="Check Authentication Status", command=self.window.check_auth_status_info)
+        external_menu.add_separator()
+        external_menu.add_command(label="Disconnect External Model", command=self.window.disconnect_external_model)
+
         # --- Help Menu ---
         help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=help_menu)
@@ -87,17 +96,23 @@ class MenuBar:
         # --- LLM Assistant Menu ---
         llm_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="LLM Assistant", menu=llm_menu)
-        llm_menu.add_command(label="Process Next TODO", command=self.demo.process_next_task)
+        llm_menu.add_command(label="Launch Quanta Demo", command=self.window.launch_quanta_demo)
         llm_menu.add_separator()
-        llm_menu.add_command(label="Start Automation", command=self.demo.start_automation)
-        llm_menu.add_command(label="Stop Automation", command=self.demo.stop_automation)
-        llm_menu.add_separator()
-        llm_menu.add_command(label="Record Macro...", command=self.demo.record_macro)
-        llm_menu.add_command(label="Edit Macro...", command=self.demo.edit_macro)
-        llm_menu.add_command(label="Load Macro...", command=self.demo.load_macro)
-        llm_menu.add_separator()
-        llm_menu.add_command(label="Clear Console Log", command=self.demo.clear_console)
-        llm_menu.add_command(label="Re-initialize Model", command=self.demo.initialize_model)
+        llm_menu.add_command(label="Run Script", command=self.window.run_script)
+
+        # --- External Models Menu ---
+        external_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="External Models", menu=external_menu)
+        external_menu.add_command(label="Configure OAuth...", command=self.window.open_config_dialog, accelerator="Ctrl+M")
+        external_menu.add_command(label="Connect to External Model", command=self.window.connect_external_model)
+        external_menu.add_command(label="Check Authentication Status", command=self.window.check_auth_status_info)
+        external_menu.add_separator()
+        external_menu.add_command(label="Disconnect External Model", command=self.window.disconnect_external_model)
+
+        # --- Export Menu ---
+        export_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Export", menu=export_menu)
+        export_menu.add_command(label="Export to HTML", command=self.window.export_html)
 
     def set_language(self):
         """Calls the editor's method to update the language."""
