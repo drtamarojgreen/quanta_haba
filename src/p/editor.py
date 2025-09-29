@@ -13,6 +13,20 @@ try:
 except ImportError:
     QUANTA_TISSU_AVAILABLE = False
 
+# Handle both relative and absolute imports
+try:
+    from .menu import MenuBar
+    from .haba_parser import HabaParser, HabaData
+    from .components import SymbolOutlinePanel, TodoExplorerPanel
+    from .script_runner import ScriptRunner
+    from .html_exporter import HtmlExporter
+except ImportError:
+    from menu import MenuBar
+    from haba_parser import HabaParser, HabaData
+    from components import SymbolOutlinePanel, TodoExplorerPanel
+    from script_runner import ScriptRunner
+    from html_exporter import HtmlExporter
+
 
 class QuantaDemoWindow(tk.Toplevel):
     def __init__(self, master=None, external_model_client=None):
@@ -24,11 +38,14 @@ class QuantaDemoWindow(tk.Toplevel):
         self.model = None
         self.tokenizer = None
         self.work_products = []
-        self.external_model_client = external_model_client
+        self.is_automating = False
+        self.is_recording_macro = tk.BooleanVar(value=False)
+        self.recorded_macro = []
         
         # Create widgets first, then initialize model
         self.create_widgets()
         self.initialize_model()
+        self.menu_bar = MenuBar(self)
         
         # Start demo after everything is set up
         self.after(500, self.start_quanta_demo)
@@ -82,6 +99,7 @@ class QuantaDemoWindow(tk.Toplevel):
         self.prompt_text = tk.Text(left_frame, wrap=tk.WORD, undo=True)
         self.prompt_text.pack(fill=tk.BOTH, expand=True)
         self.prompt_text.tag_configure("highlight", background="yellow")
+        self.prompt_text.bind("<KeyPress>", self._handle_key_press)
         top_paned_window.add(left_frame, stretch="always", width=450)
 
         # Right panel for model responses
@@ -114,19 +132,12 @@ class QuantaDemoWindow(tk.Toplevel):
 
     def start_quanta_demo(self):
         self.log_to_console("Starting Quanta Haba Demo...")
-        try:
-            prompt_file_path = os.path.join(os.path.dirname(__file__), 'default_prompt.txt')
-            with open(prompt_file_path, "r") as f:
-                content = f.read()
-            self.prompt_text.delete("1.0", tk.END)
-            self.prompt_text.insert("1.0", content)
-            self.log_to_console(f"Loaded prompt file: {prompt_file_path}")
-            self.after(500, self.process_next_task)
-        except FileNotFoundError:
-            self.log_to_console(f"Error: 'default_prompt.txt' not found in 'src/p/'.")
-            self.prompt_text.insert("1.0", "Error: 'default_prompt.txt' not found in 'src/p/'.")
+        self.load_prompt()
 
-    def process_next_task(self):
+    def process_next_task(self, automated=False):
+        if not self.is_automating and automated:
+            return # Stop if automation was turned off
+
         content = self.prompt_text.get("1.0", tk.END)
         lines = content.splitlines()
 
@@ -138,6 +149,7 @@ class QuantaDemoWindow(tk.Toplevel):
 
         if task_line_index == -1:
             self.log_to_console("All tasks completed!")
+            self.is_automating = False
             return
 
         line_text = lines[task_line_index]
@@ -149,6 +161,9 @@ class QuantaDemoWindow(tk.Toplevel):
         self.log_to_console(f"Processing task: {task}")
 
         self.call_quanta_model(task, task_line_index)
+
+        if self.is_automating:
+            self.after(1000, self.process_next_task, True)
 
     def call_quanta_model(self, task, line_index):
         import datetime
@@ -220,22 +235,173 @@ class QuantaDemoWindow(tk.Toplevel):
         self.prompt_text.delete(f"{line_num_str}.0", f"{line_num_str}.end")
         self.prompt_text.insert(f"{line_num_str}.0", new_line)
 
-        self.after(1000, self.process_next_task)
+    # --- Menu Commands ---
+    def new_prompt(self):
+        self.prompt_text.delete("1.0", tk.END)
+        self.log_to_console("New prompt created.")
+
+    def load_prompt(self, filepath=None):
+        if not filepath:
+            filepath = filedialog.askopenfilename(
+                filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+                title="Load Prompt"
+            )
+        if not filepath:
+            # Try loading default if user cancels dialog
+            try:
+                filepath = os.path.join(os.path.dirname(__file__), 'default_prompt.txt')
+            except FileNotFoundError:
+                self.log_to_console("Load cancelled. No default prompt found.")
+                return
+
+        try:
+            with open(filepath, "r") as f:
+                content = f.read()
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", content)
+            self.log_to_console(f"Loaded prompt file: {filepath}")
+        except FileNotFoundError:
+            self.log_to_console(f"Error: '{os.path.basename(filepath)}' not found.")
+        except Exception as e:
+            self.log_to_console(f"Error loading file: {e}")
 
 
-# Handle both relative and absolute imports
-try:
-    from .haba_parser import HabaParser, HabaData
-    from .components import SymbolOutlinePanel, TodoExplorerPanel
-    from .script_runner import ScriptRunner
-    from .html_exporter import HtmlExporter
-    from .external_model_client import ExternalModelClient
-except ImportError:
-    from haba_parser import HabaParser, HabaData
-    from components import SymbolOutlinePanel, TodoExplorerPanel
-    from script_runner import ScriptRunner
-    from html_exporter import HtmlExporter
-    from external_model_client import ExternalModelClient
+    def save_prompt(self):
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+            title="Save Prompt As"
+        )
+        if not filepath:
+            return
+        try:
+            with open(filepath, "w") as f:
+                f.write(self.prompt_text.get("1.0", tk.END))
+            self.log_to_console(f"Prompt saved to: {filepath}")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save file:\n{e}")
+
+    def find_text(self):
+        # Simple find dialog
+        dialog = tk.Toplevel(self)
+        dialog.title("Find")
+        tk.Label(dialog, text="Find:").pack(side=tk.LEFT, padx=5, pady=5)
+        entry = tk.Entry(dialog)
+        entry.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
+
+        def find():
+            term = entry.get()
+            if term:
+                self.prompt_text.tag_remove('found', '1.0', tk.END)
+                start_pos = '1.0'
+                while True:
+                    start_pos = self.prompt_text.search(term, start_pos, stopindex=tk.END)
+                    if not start_pos:
+                        break
+                    end_pos = f"{start_pos}+{len(term)}c"
+                    self.prompt_text.tag_add('found', start_pos, end_pos)
+                    start_pos = end_pos
+                self.prompt_text.tag_config('found', background='yellow')
+            dialog.destroy()
+
+        button = tk.Button(dialog, text="Find", command=find)
+        button.pack(padx=5, pady=5)
+        entry.focus_set()
+
+    def replace_text(self):
+        # Simple replace dialog
+        dialog = tk.Toplevel(self)
+        dialog.title("Replace")
+        tk.Label(dialog, text="Find:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        find_entry = tk.Entry(dialog, width=40)
+        find_entry.grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(dialog, text="Replace:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        replace_entry = tk.Entry(dialog, width=40)
+        replace_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        def replace():
+            find_term = find_entry.get()
+            replace_term = replace_entry.get()
+            if find_term:
+                content = self.prompt_text.get('1.0', tk.END)
+                new_content = content.replace(find_term, replace_term)
+                self.prompt_text.delete('1.0', tk.END)
+                self.prompt_text.insert('1.0', new_content)
+            dialog.destroy()
+
+        button = tk.Button(dialog, text="Replace All", command=replace)
+        button.grid(row=2, column=1, pady=10, sticky="e")
+        find_entry.focus_set()
+
+    def start_automation(self):
+        if self.is_automating:
+            return
+        self.is_automating = True
+        self.log_to_console("Starting automation...")
+        self.process_next_task(automated=True)
+
+    def stop_automation(self):
+        self.is_automating = False
+        self.log_to_console("Automation stopped.")
+
+    def clear_console(self):
+        self.console_log.config(state=tk.NORMAL)
+        self.console_log.delete("1.0", tk.END)
+        self.console_log.config(state=tk.DISABLED)
+
+    def record_macro(self):
+        self.is_recording_macro.set(not self.is_recording_macro.get())
+        if self.is_recording_macro.get():
+            self.recorded_macro = []
+            self.log_to_console("Macro recording started.")
+        else:
+            self.log_to_console(f"Macro recording stopped. {len(self.recorded_macro)} actions recorded.")
+
+    def _handle_key_press(self, event):
+        if self.is_recording_macro.get():
+            # Record character insertion
+            if event.char and event.char.isprintable():
+                self.recorded_macro.append(('insert', self.prompt_text.index(tk.INSERT), event.char))
+            # Record backspace
+            elif event.keysym == 'BackSpace':
+                # Get the index before the deletion occurs
+                index = self.prompt_text.index(tk.INSERT)
+                if self.prompt_text.tag_ranges(tk.SEL):
+                    # If there's a selection, record deletion of the selection
+                    start, end = self.prompt_text.tag_ranges(tk.SEL)
+                    self.recorded_macro.append(('delete', start, end))
+                else:
+                    # Record deletion of a single character
+                    self.recorded_macro.append(('delete', f"{index}-1c", index))
+            # Record newline
+            elif event.keysym == 'Return':
+                self.recorded_macro.append(('insert', self.prompt_text.index(tk.INSERT), '\n'))
+
+    def edit_macro(self):
+        messagebox.showinfo("Not Implemented", "Edit Macro feature is not yet implemented.")
+
+    def load_macro(self):
+        messagebox.showinfo("Not Implemented", "Load Macro feature is not yet implemented.")
+
+    def play_macro(self):
+        if not self.recorded_macro:
+            self.log_to_console("No macro recorded.")
+            return
+
+        self.log_to_console(f"Playing back {len(self.recorded_macro)} actions...")
+        for action, *params in self.recorded_macro:
+            if action == 'insert':
+                index, text = params
+                self.prompt_text.insert(index, text)
+            elif action == 'delete':
+                start, end = params
+                self.prompt_text.delete(start, end)
+        self.log_to_console("Macro playback finished.")
+
+    def launch_haba_editor(self):
+        haba_editor = HabaEditor(tk.Toplevel(self.master))
+
+# --- HabaEditor and other classes remain unchanged for now ---
 
 def lint_javascript_text(script_text_widget):
     """
@@ -346,6 +512,7 @@ class HabaEditor(tk.Frame):
         self.external_model_client = None
         self.external_model_config = {}
         self.create_widgets()
+        self.menu_bar = MenuBar(self)
 
     def open_config_dialog(self, event=None):
         dialog = ConfigDialog(self, self.external_model_config)
@@ -354,34 +521,6 @@ class HabaEditor(tk.Frame):
             messagebox.showinfo("Configuration Saved", "External model configuration has been updated.")
 
     def create_widgets(self):
-        # Top frame for buttons
-        top_frame = tk.Frame(self)
-        top_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        self.load_button = tk.Button(top_frame, text="Load", command=self.load_file)
-        self.load_button.pack(side=tk.LEFT, padx=5)
-
-        self.save_button = tk.Button(top_frame, text="Save", command=self.save_file)
-        self.save_button.pack(side=tk.LEFT, padx=5)
-
-        self.render_button = tk.Button(top_frame, text="Render", command=self.render_preview)
-        self.render_button.pack(side=tk.LEFT, padx=5)
-
-        self.lint_button = tk.Button(top_frame, text="Lint", command=self.lint_script_text)
-        self.lint_button.pack(side=tk.LEFT, padx=5)
-
-        self.run_button = tk.Button(top_frame, text="Run Script", command=self.run_script)
-        self.run_button.pack(side=tk.LEFT, padx=5)
-
-        self.export_button = tk.Button(top_frame, text="Export HTML", command=self.export_html)
-        self.export_button.pack(side=tk.LEFT, padx=5)
-
-        self.quanta_demo_button = tk.Button(top_frame, text="Quanta Demo", command=self.launch_quanta_demo)
-        self.quanta_demo_button.pack(side=tk.LEFT, padx=5)
-
-        self.connect_external_button = tk.Button(top_frame, text="Connect External Model", command=self.connect_external_model)
-        self.connect_external_button.pack(side=tk.LEFT, padx=5)
-
         # Main content area with three panels
         main_paned_window = tk.PanedWindow(self, orient=tk.VERTICAL)
         main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
