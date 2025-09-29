@@ -1,157 +1,130 @@
 import unittest
-import tkinter as tk
-import os
+from unittest.mock import MagicMock, call
 import sys
-from unittest.mock import patch, MagicMock
+import os
 
-# Add src/p to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'p'))
+# Add the src directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
-# Conditional import to handle potential CI/CD environment without GUI
-try:
-    from editor import QuantaDemoWindow
-    GUI_AVAILABLE = True
-except tk.TclError:
-    GUI_AVAILABLE = False
-except ImportError:
-    # Handle cases where editor.py itself might have an import error on a headless system
-    GUI_AVAILABLE = False
-    QuantaDemoWindow = None
+from p.editor import lint_javascript_text
 
-
-@unittest.skipIf(not GUI_AVAILABLE, "Skipping GUI tests in a headless environment")
-class TestQuantaDemoWindow(unittest.TestCase):
-    """Comprehensive tests for the QuantaDemoWindow class."""
+class TestLintJavaScriptText(unittest.TestCase):
 
     def setUp(self):
-        """Set up the test environment before each test."""
-        self.root = tk.Tk()
-        self.root.withdraw()  # Hide the main window during tests
+        """Set up a mock text widget for each test."""
+        self.mock_text_widget = MagicMock()
+        self.mock_text_widget.get.return_value = ""
+        self.mock_text_widget.tag_remove.return_value = None
+        self.mock_text_widget.tag_add.return_value = None
+
+    def test_linting_empty_text(self):
+        """Test that no tags are added for empty text."""
+        self.mock_text_widget.get.return_value = ""
+        lint_javascript_text(self.mock_text_widget)
+        self.mock_text_widget.tag_add.assert_not_called()
+
+    def test_trailing_whitespace(self):
+        """Test that trailing whitespace is correctly identified."""
+        self.mock_text_widget.get.return_value = "const x = 10;  "
+        lint_javascript_text(self.mock_text_widget)
+        self.mock_text_widget.tag_add.assert_called_with("trailing_whitespace", "1.14", "1.16")
+
+    def test_use_of_var(self):
+        """Test that 'var' keyword usage is identified."""
+        self.mock_text_widget.get.return_value = "var y = 20;"
+        lint_javascript_text(self.mock_text_widget)
+        self.mock_text_widget.tag_add.assert_called_with("use_of_var", "1.0", "1.3")
+
+    def test_long_line(self):
+        """Test that long lines are correctly identified."""
+        long_line = "a" * 81
+        self.mock_text_widget.get.return_value = long_line
+        lint_javascript_text(self.mock_text_widget)
+        self.mock_text_widget.tag_add.assert_called_with("long_line", "1.0", f"1.{len(long_line)}")
+
+    def test_missing_semicolon(self):
+        """Test that a missing semicolon is identified."""
+        self.mock_text_widget.get.return_value = "const z = 30"
+        lint_javascript_text(self.mock_text_widget)
+        # The tag should be on the last character of the stripped line
+        self.mock_text_widget.tag_add.assert_any_call("missing_semicolon", "1.11", "1.12")
+
+
+class TestLintJavaScriptTextBDD(unittest.TestCase):
+    """BDD-style tests for the JavaScript linter."""
+
+    def setUp(self):
+        """Set up a mock text widget for each test."""
+        self.mock_text_widget = MagicMock()
+        self.mock_text_widget.get.return_value = ""
+        self.mock_text_widget.tag_remove.return_value = None
+        self.mock_text_widget.tag_add.return_value = None
+        self.calls = []
 
     def tearDown(self):
-        """Clean up the test environment after each test."""
-        # Check if root window was destroyed during a test, if not, destroy it.
-        if self.root.winfo_exists():
-            self.root.destroy()
+        """Clear calls after each test."""
+        self.calls = []
 
-    @patch('editor.QuantaDemoWindow.initialize_model')
-    def test_initialization_and_layout(self, mock_initialize_model):
+    def record_tag_add(self, tag, start, end):
+        """Record calls to tag_add."""
+        self.calls.append({'tag': tag, 'start': start, 'end': end})
+
+    def test_scenario_double_equals_in_code(self):
         """
-        Tests if the demo window initializes correctly and creates the three-panel layout.
+        Scenario: Using double equals in JavaScript code.
+        Given a line of JavaScript code with a '==' comparison.
+        When the linter is run.
+        Then a 'use_of_double_equals' tag should be applied.
         """
-        # GIVEN: The QuantaDemoWindow is to be created
-        # WHEN: The window is instantiated
-        demo_window = QuantaDemoWindow(self.root)
-        demo_window.update_idletasks() # Ensure widgets are created
+        # Given
+        code = "if (a == b) { console.log('hello'); }"
+        self.mock_text_widget.get.return_value = code
+        self.mock_text_widget.tag_add.side_effect = self.record_tag_add
 
-        # THEN: The model initialization is called once
-        mock_initialize_model.assert_called_once()
+        # When
+        lint_javascript_text(self.mock_text_widget)
 
-        # AND: The window has the correct title
-        self.assertEqual(demo_window.title(), "Quanta Haba Demo")
+        # Then
+        expected_call = {'tag': 'use_of_double_equals', 'start': '1.7', 'end': '1.9'}
+        self.assertIn(expected_call, self.calls)
 
-        # AND: The three main panels are created and labeled correctly
-        # We find widgets by their text labels to confirm they exist.
-        labels = {widget.cget("text"): widget for widget in demo_window.winfo_children() if isinstance(widget, tk.Label)}
-
-        # Note: The labels are inside frames, so we need to search recursively
-        def find_label(widget, text):
-            if isinstance(widget, tk.Label) and widget.cget("text") == text:
-                return True
-            for child in widget.winfo_children():
-                if find_label(child, text):
-                    return True
-            return False
-
-        self.assertTrue(find_label(demo_window, "Prompt Editor"))
-        self.assertTrue(find_label(demo_window, "Model Responses"))
-        self.assertTrue(find_label(demo_window, "Console Log"))
-
-        # AND: The core text/listbox widgets exist
-        self.assertTrue(hasattr(demo_window, 'prompt_text'))
-        self.assertTrue(hasattr(demo_window, 'dashboard_listbox'))
-        self.assertTrue(hasattr(demo_window, 'console_log'))
-
-        demo_window.destroy()
-
-    @patch('editor.QuantaDemoWindow.initialize_model')
-    def test_default_prompt_loading(self, mock_initialize_model):
+    def test_scenario_many_parameters_in_function(self):
         """
-        Tests if the default prompt file is loaded correctly on start.
+        Scenario: A function with too many parameters.
+        Given a JavaScript function with more than 5 parameters.
+        When the linter is run.
+        Then a 'many_parameters' tag should be applied.
         """
-        # GIVEN: A QuantaDemoWindow instance
-        demo_window = QuantaDemoWindow(self.root)
-        demo_window.update_idletasks()
+        # Given
+        code = "function tooManyParams(a, b, c, d, e, f) { return; }"
+        self.mock_text_widget.get.return_value = code
+        self.mock_text_widget.tag_add.side_effect = self.record_tag_add
 
-        # AND: The content of the default prompt file
-        prompt_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'p', 'default_prompt.txt')
-        with open(prompt_file_path, "r") as f:
-            expected_content = f.read()
+        # When
+        lint_javascript_text(self.mock_text_widget)
 
-        # WHEN: The demo startup process is triggered
-        # (It's normally called with `after`, we call it directly for the test)
-        demo_window.start_quanta_demo()
-        demo_window.update_idletasks()
+        # Then
+        expected_call = {'tag': 'many_parameters', 'start': '1.0', 'end': '1.44'}
+        self.assertIn(expected_call, self.calls)
 
-        # THEN: The prompt_text widget contains the content of the file
-        actual_content = demo_window.prompt_text.get("1.0", tk.END)
-        self.assertEqual(actual_content.strip(), expected_content.strip())
-
-        # AND: A success message is logged to the console
-        console_content = demo_window.console_log.get("1.0", tk.END)
-        self.assertIn(f"Loaded prompt file: {prompt_file_path}", console_content)
-
-        demo_window.destroy()
-
-    @patch('editor.QuantaDemoWindow.call_quanta_model')
-    @patch('editor.QuantaDemoWindow.initialize_model')
-    def test_task_processing_flow(self, mock_initialize_model, mock_call_model):
+    def test_scenario_clean_code(self):
         """
-        Tests the core logic of processing a single TODO task.
-        This test simulates the flow of identifying a task, "processing" it,
-        and updating the UI.
+        Scenario: Linting clean JavaScript code.
+        Given a clean line of JavaScript code.
+        When the linter is run.
+        Then no tags should be applied.
         """
-        # GIVEN: A QuantaDemoWindow with a loaded prompt
-        demo_window = QuantaDemoWindow(self.root)
-        demo_window.update_idletasks()
-        demo_window.start_quanta_demo() # Load the default prompt
-        demo_window.update_idletasks()
+        # Given
+        code = "const clean = () => 'hello';"
+        self.mock_text_widget.get.return_value = code
+        self.mock_text_widget.tag_add.side_effect = self.record_tag_add
 
-        # WHEN: The next task is processed
-        # The first task is "Generate project title"
-        demo_window.process_next_task()
-        demo_window.update_idletasks()
+        # When
+        lint_javascript_text(self.mock_text_widget)
 
-        # THEN: The model call is triggered with the correct task
-        mock_call_model.assert_called_once_with("Generate project title", 0)
+        # Then
+        self.assertEqual(len(self.calls), 0)
 
-        # To simulate the rest of the flow, we can manually call the parts
-        # that are normally triggered by the model response.
-
-        # GIVEN: A mocked model response flow
-        task = "Generate project title"
-        line_index = 0
-
-        # WHEN: We simulate the UI update that happens after a model call
-        # (This logic is from the real `call_quanta_model` method)
-        demo_window.dashboard_listbox.insert(tk.END, f"✓ {task} → Stubbed response")
-        original_line = demo_window.prompt_text.get(f"{line_index + 1}.0", f"{line_index + 1}.end")
-        new_line = original_line.replace("TODO:", "DONE:", 1)
-        demo_window.prompt_text.delete(f"{line_index + 1}.0", f"{line_index + 1}.end")
-        demo_window.prompt_text.insert(f"{line_index + 1}.0", new_line)
-        demo_window.update_idletasks()
-
-        # THEN: The prompt text is updated from TODO to DONE
-        updated_first_line = demo_window.prompt_text.get("1.0", "1.end")
-        self.assertIn("DONE: Generate project title", updated_first_line)
-
-        # AND: The dashboard listbox is updated
-        dashboard_content = demo_window.dashboard_listbox.get(0)
-        self.assertIn("✓ Generate project title → Stubbed response", dashboard_content)
-
-        demo_window.destroy()
 
 if __name__ == '__main__':
-    # This allows running the test file directly, but it's optional
-    # and won't be used in the context of the agent's execution.
     unittest.main()
