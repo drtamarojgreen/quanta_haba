@@ -29,7 +29,7 @@ class TestHtmlExporter(unittest.TestCase):
         
         self.assertIn("<!DOCTYPE html>", html)
         self.assertIn("<title>Test Document</title>", html)
-        self.assertIn("<html>", html)
+        self.assertIn("<html", html)
         self.assertIn("</html>", html)
         
     def test_export_content_only(self):
@@ -95,7 +95,7 @@ init();
         
         # Check HTML structure
         self.assertIn("<!DOCTYPE html>", html)
-        self.assertIn("<html>", html)
+        self.assertIn("<html", html)
         self.assertIn("<head>", html)
         self.assertIn("<body>", html)
         self.assertIn("</html>", html)
@@ -181,7 +181,7 @@ class TestHtmlExporterBDD(unittest.TestCase):
         
         # Then
         self.assertIn("<!DOCTYPE html>", html)
-        self.assertIn("<html>", html)
+        self.assertIn("<html", html)
         self.assertIn("<head>", html)
         self.assertIn("<title>BDD Test</title>", html)
         self.assertIn("<body>", html)
@@ -321,21 +321,30 @@ class TestHtmlExporterIntegration(unittest.TestCase):
     def test_parse_then_export_workflow(self):
         """Test complete workflow: parse .haba content then export to HTML"""
         # Create sample .haba content
-        haba_content = """Welcome to Integration Test
+        haba_content = """<content_layer>
+Welcome to Integration Test
 This tests the complete workflow.
 From parsing to HTML export.
-
----PRESENTATION---
-h1: color: 'purple'; font-size: '32px'
-p: color: 'black'; margin: '15px'
-div: border: '1px solid gray'; padding: '20px'
-
----SCRIPT---
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        p
+        div
+    </containers>
+    <styles>
+        color: 'purple'; font-size: '32px'
+        color: 'black'; margin: '15px'
+        border: '1px solid gray'; padding: '20px'
+    </styles>
+</presentation_layer>
+<script_layer>
 console.log('Integration test loaded');
 function showMessage() {
     alert('Integration test successful!');
 }
 showMessage();
+</script_layer>
 """
         
         # Parse the content

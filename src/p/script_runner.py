@@ -134,11 +134,11 @@ def run_python_script(script_content):
 
         # Process stdout
         if result.stdout:
-            logs.extend(result.stdout.strip().split('\\n'))
+            logs.extend(result.stdout.strip().split('\n'))
 
         # Process stderr
         if result.stderr:
-            stderr_lines = result.stderr.strip().split('\\n')
+            stderr_lines = result.stderr.strip().split('\n')
             logs.extend(stderr_lines)
             if stderr_lines:
                 tasks.append({

@@ -14,9 +14,9 @@ class SymbolOutlinePanel(tk.Frame):
         self.listbox.pack(fill=tk.BOTH, expand=True)
 
         self.patterns = {
-            'python': re.compile(r"^\s*(?:def|class)\s+([a-zA-Z0-9_]+)"),
-            'cpp': re.compile(r"^(?:class|struct)\s+([a-zA-Z0-9_]+)|(?:[a-zA-Z0-9_:]+)\s+([a-zA-Z0-9_]+)\s*\([^)]*\)\s*(?:const)?\s*{"),
-            'javascript': re.compile(r"^(?:function\s+([a-zA-Z0-9_]+)\s*\(|class\s+([A-Z][a-zA-Z0-9_]*))")
+            'python': re.compile(r"^\s*(?:def|class)\s+([a-zA-Z0-9_]+)", re.MULTILINE),
+            'cpp': re.compile(r"^(?:class|struct)\s+([a-zA-Z0-9_]+)|(?:[a-zA-Z0-9_:]+)\s+([a-zA-Z0-9_]+)\s*\([^)]*\)\s*(?:const)?\s*{", re.MULTILINE),
+            'javascript': re.compile(r"^(?:function\s+([a-zA-Z0-9_]+)\s*\(|class\s+([A-Z][a-zA-Z0-9_]*))", re.MULTILINE)
         }
 
     def update_symbols(self, text_content, language):

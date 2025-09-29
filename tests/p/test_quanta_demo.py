@@ -22,14 +22,15 @@ class TestQuantaDemoWindow(unittest.TestCase):
         # Patch the tkinter Toplevel to avoid creating real windows
         with patch('tkinter.Toplevel'):
             self.app = QuantaDemoWindow(master=self.root)
+        self.app.log_to_console = MagicMock()
 
     def tearDown(self):
         # Destroy the root window after each test
         self.root.destroy()
 
     @patch('p.editor.QUANTA_TISSU_AVAILABLE', True)
-    @patch('p.editor.Tokenizer')
-    @patch('p.editor.QuantaTissu')
+    @patch('p.editor.QuantaTissu', create=True)
+    @patch('p.editor.Tokenizer', create=True)
     @patch('builtins.open', new_callable=mock_open, read_data='{"embedding_dim": 128}')
     @patch('os.path.join', return_value='/fake/path/to/config')
     def test_initialize_model_success(self, mock_join, mock_file, mock_qt, mock_tokenizer):
@@ -40,7 +41,7 @@ class TestQuantaDemoWindow(unittest.TestCase):
         self.assertIsNotNone(self.app.tokenizer)
 
     @patch('p.editor.QUANTA_TISSU_AVAILABLE', False)
-    def test_initialize_model_no_quanta_tissu(self, mock_qt_available):
+    def test_initialize_model_no_quanta_tissu(self):
         """Test model initialization when quanta_tissu is not available."""
         self.app.initialize_model()
         self.app.log_to_console.assert_any_call("Error: `quanta_tissu` package not found. Demo will use stubbed responses.")
@@ -48,7 +49,7 @@ class TestQuantaDemoWindow(unittest.TestCase):
         self.assertIsNone(self.app.tokenizer)
 
     @patch('p.editor.QUANTA_TISSU_AVAILABLE', True)
-    @patch('builtins.open', side_effect=FileNotFoundError)
+    @patch('builtins.open', side_effect=FileNotFoundError("[Errno 2] No such file or directory: '/fake/path/to/config'"))
     @patch('os.path.join', return_value='/fake/path/to/config')
     def test_initialize_model_file_not_found(self, mock_join, mock_open):
         """Test model initialization when a config file is not found."""
@@ -80,7 +81,7 @@ class TestQuantaDemoWindow(unittest.TestCase):
         self.app.log_to_console.assert_any_call("All tasks completed!")
         self.app.call_quanta_model.assert_not_called()
 
-    @patch('p.editor.generate_text', return_value="A generated response.")
+    @patch('p.editor.generate_text', return_value="A generated response.", create=True)
     def test_call_quanta_model_with_model(self, mock_generate_text):
         """Test calling the Quanta model when it's initialized."""
         self.app.model = MagicMock()

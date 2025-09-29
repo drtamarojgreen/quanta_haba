@@ -55,10 +55,10 @@ This has no script layer.
             None  # js_error
         ]
         
-        haba_content = """Test Content
-
----SCRIPT---
+        haba_content = """<content_layer>Test Content</content_layer>
+<script_layer>
 console.log('Test log message');
+</script_layer>
 """
         
         logs, tasks = self.script_runner.run_script(haba_content)
@@ -78,10 +78,10 @@ console.log('Test log message');
             {'name': 'ReferenceError', 'message': 'undefined variable', 'stack': 'stack trace'}  # js_error
         ]
         
-        haba_content = """Test Content
-
----SCRIPT---
+        haba_content = """<content_layer>Test Content</content_layer>
+<script_layer>
 console.log(undefinedVariable);
+</script_layer>
 """
         
         logs, tasks = self.script_runner.run_script(haba_content)
@@ -103,11 +103,11 @@ console.log(undefinedVariable);
             None  # js_error
         ]
         
-        haba_content = """Test Content
-
----SCRIPT---
+        haba_content = """<content_layer>Test Content</content_layer>
+<script_layer>
 console.log('TODO: Fix this function');
 console.log('FIXME: Handle edge case');
+</script_layer>
 """
         
         logs, tasks = self.script_runner.run_script(haba_content)
@@ -236,10 +236,10 @@ class TestScriptRunnerBDD(unittest.TestCase):
             None
         ]
         
-        haba_content = """Test Document
-
----SCRIPT---
+        haba_content = """<content_layer>Test Document</content_layer>
+<script_layer>
 console.log('JavaScript executed successfully');
+</script_layer>
 """
         
         # When
@@ -265,11 +265,11 @@ console.log('JavaScript executed successfully');
             {'name': 'TypeError', 'message': 'Cannot read property', 'stack': 'Error stack'}
         ]
         
-        haba_content = """Test Document
-
----SCRIPT---
+        haba_content = """<content_layer>Test Document</content_layer>
+<script_layer>
 var obj = null;
 console.log(obj.property);
+</script_layer>
 """
         
         # When
@@ -296,11 +296,11 @@ console.log(obj.property);
             None
         ]
         
-        haba_content = """Test Document
-
----SCRIPT---
+        haba_content = """<content_layer>Test Document</content_layer>
+<script_layer>
 console.log('TODO: Implement feature X');
 console.log('FIXME: Bug in calculation');
+</script_layer>
 """
         
         # When
@@ -385,19 +385,26 @@ class TestScriptRunnerIntegration(unittest.TestCase):
         ]
         
         # Create complete .haba content
-        haba_content = """Integration Test Document
+        haba_content = """<content_layer>
+Integration Test Document
 This tests parsing and script execution.
-
----PRESENTATION---
-h1: color: 'blue'
-p: font-size: '14px'
-
----SCRIPT---
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        p
+    </containers>
+    <styles>
+        color: 'blue'
+        font-size: '14px'
+    </styles>
+</presentation_layer>
+<script_layer>
 console.log('Integration test log');
 function testFunction() {
     return 'success';
 }
-"""
+</script_layer>"""
         
         # Parse the content (to verify it works)
         haba_data = self.parser.parse(haba_content)

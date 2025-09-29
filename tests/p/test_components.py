@@ -311,8 +311,7 @@ class DataProcessor:
         """
         # Given
         panel = TodoExplorerPanel(self.root)
-        code_with_todos = """
-def function_one():
+        code_with_todos = """def function_one():
     # TODO: Implement validation
     pass
 
@@ -332,7 +331,7 @@ def function_two():
         todo_item = next(item for item in items if 'TODO' in item)
         fixme_item = next(item for item in items if 'FIXME' in item)
         
-        self.assertIn('3:', todo_item)  # Line number
+        self.assertIn('2:', todo_item)  # Line number
         self.assertIn('Implement validation', todo_item)
         self.assertIn('6:', fixme_item)  # Line number
         self.assertIn('Handle edge case', fixme_item)
