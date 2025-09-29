@@ -1,11 +1,9 @@
 import tkinter as tk
-from tkinter import messagebox, font as tkFont
-import os
-import subprocess
+from tkinter import messagebox
 
 class MenuBar:
     """
-    Manages the creation of the menu bar and its associated commands.
+    Manages the creation of the menu bar and its associated commands for the QuantaDemoWindow.
     """
     def __init__(self, window):
         """
@@ -78,13 +76,7 @@ class MenuBar:
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.window.master.quit)
 
-        # Language menu
-        language_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Language", menu=language_menu)
-        language_menu.add_radiobutton(label="JavaScript", variable=self.language_var, value='javascript', command=self.set_language)
-        language_menu.add_radiobutton(label="Python", variable=self.language_var, value='python', command=self.set_language)
-
-        # Edit menu
+        # --- Edit Menu ---
         edit_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Edit", menu=edit_menu)
         # Note: HabaEditor doesn't have these methods yet, they would need to be implemented
@@ -92,13 +84,20 @@ class MenuBar:
         # edit_menu.add_command(label="Sort Imports", command=self.window.sort_imports)
         # edit_menu.add_command(label="Upgrade String Formatting", command=self.window.upgrade_string_formatting)
 
-        # Git menu
-        git_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="Git", menu=git_menu)
-        git_menu.add_command(label="Status", command=self.git_status)
-        git_menu.add_command(label="Stage Current File", command=self.git_stage_file)
-        git_menu.add_command(label="Commit", command=self.git_commit)
-        git_menu.add_command(label="Log", command=self.git_log)
+        # --- LLM Assistant Menu ---
+        llm_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="LLM Assistant", menu=llm_menu)
+        llm_menu.add_command(label="Process Next TODO", command=self.demo.process_next_task)
+        llm_menu.add_separator()
+        llm_menu.add_command(label="Start Automation", command=self.demo.start_automation)
+        llm_menu.add_command(label="Stop Automation", command=self.demo.stop_automation)
+        llm_menu.add_separator()
+        llm_menu.add_command(label="Record Macro...", command=self.demo.record_macro)
+        llm_menu.add_command(label="Edit Macro...", command=self.demo.edit_macro)
+        llm_menu.add_command(label="Load Macro...", command=self.demo.load_macro)
+        llm_menu.add_separator()
+        llm_menu.add_command(label="Clear Console Log", command=self.demo.clear_console)
+        llm_menu.add_command(label="Re-initialize Model", command=self.demo.initialize_model)
 
     def set_language(self):
         """Calls the editor's method to update the language."""
@@ -122,17 +121,15 @@ class MenuBar:
 
     # --- Git Feature Methods (should only be called from HabaEditor context) ---
 
-    def _find_git_root(self, path):
-        if not path or not os.path.exists(os.path.dirname(os.path.abspath(path))):
-            return None
-        current_dir = os.path.dirname(os.path.abspath(path))
-        while True:
-            if ".git" in os.listdir(current_dir):
-                return current_dir
-            parent_dir = os.path.dirname(current_dir)
-            if parent_dir == current_dir:  # Reached root
-                return None
-            current_dir = parent_dir
+    def show_llm_guide(self):
+        messagebox.showinfo(
+            "LLM Assistant Guide",
+            "The LLM Assistant processes tasks in the Prompt Editor.\n\n"
+            "1. Write tasks starting with 'TODO:'.\n"
+            "2. Use 'Process Next TODO' to run one task.\n"
+            "3. Use 'Start Automation' to run all tasks sequentially.\n"
+            "4. The model will replace 'TODO:' with 'DONE:' upon completion."
+        )
 
     def _show_git_status_dialog(self, status_text):
         status_window = tk.Toplevel(self.window.master)
