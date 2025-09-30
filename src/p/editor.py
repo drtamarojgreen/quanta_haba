@@ -631,6 +631,7 @@ class HabaEditor(tk.Frame):
         self.language = 'javascript' # Default language for the script panel
         self.external_model_client = None
         self.external_model_config = {}
+        self.demo_window = None
         self.create_widgets()
         self.menu_bar = MenuBar(self)
 
@@ -792,7 +793,10 @@ class HabaEditor(tk.Frame):
             messagebox.showinfo("Authentication Status", "✗ Not authenticated")
 
     def launch_quanta_demo(self):
-        demo_window = QuantaDemoWindow(self.master, external_model_client=self.external_model_client)
+        if self.demo_window and self.demo_window.winfo_exists():
+            self.demo_window.lift()
+            return
+        self.demo_window = QuantaDemoWindow(self.master, external_model_client=self.external_model_client)
 
     def lint_script_text(self):
         lint_javascript_text(self.script_text)
