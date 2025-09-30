@@ -549,8 +549,54 @@ class ConfigDialog(tk.Toplevel):
 
         self.result = None
         self.initial_config = initial_config or {}
-
         self.entries = {}
+
+        # Define OAuth provider presets
+        self.provider_presets = {
+            "Google Gemini": {
+                "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+                "token_url": "https://oauth2.googleapis.com/token",
+                "api_base_url": "https://generativelanguage.googleapis.com/v1beta",
+                "scopes": "https://www.googleapis.com/auth/generative-language.retriever",
+                "use_pkce": True
+            },
+            "Anthropic": {
+                "authorization_url": "https://accounts.anthropic.com/oauth/authorize",
+                "token_url": "https://api.anthropic.com/oauth/token",
+                "api_base_url": "https://api.anthropic.com/v1",
+                "scopes": "read write",
+                "use_pkce": True
+            },
+            "OpenAI ChatGPT": {
+                "authorization_url": "https://auth.openai.com/authorize",
+                "token_url": "https://api.openai.com/v1/oauth/token",
+                "api_base_url": "https://api.openai.com/v1",
+                "scopes": "read write",
+                "use_pkce": True
+            },
+            "Llama": {
+                "authorization_url": "https://llama.meta.com/oauth/authorize",
+                "token_url": "https://llama.meta.com/oauth/token",
+                "api_base_url": "https://api.llama.meta.com/v1",
+                "scopes": "read write",
+                "use_pkce": True
+            },
+            "CoPilot": {
+                "authorization_url": "https://github.com/login/oauth/authorize",
+                "token_url": "https://github.com/login/oauth/access_token",
+                "api_base_url": "https://api.github.com/copilot",
+                "scopes": "copilot",
+                "use_pkce": True
+            },
+            "Local Llama.cpp": {
+                "authorization_url": "",
+                "token_url": "",
+                "api_base_url": "http://localhost:8080",
+                "scopes": "",
+                "use_pkce": False
+            }
+        }
+
         self.create_widgets()
         self.wait_window(self)
 
@@ -559,9 +605,19 @@ class ConfigDialog(tk.Toplevel):
         frame.pack(fill=tk.BOTH, expand=True)
 
         # Add instructions
-        instructions = tk.Label(frame, text="Configure OAuth 2.0 settings for external model provider:", 
+        instructions = tk.Label(frame, text="Select a provider or manually configure OAuth 2.0 settings:",
                                font=("Arial", 10, "bold"))
         instructions.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+
+        # Provider selection dropdown
+        provider_label = tk.Label(frame, text="Provider Preset:")
+        provider_label.grid(row=1, column=0, sticky=tk.W, pady=2)
+
+        self.provider_var = tk.StringVar()
+        provider_dropdown = ttk.Combobox(frame, textvariable=self.provider_var,
+                                         values=list(self.provider_presets.keys()))
+        provider_dropdown.grid(row=1, column=1, sticky=tk.EW, pady=2)
+        provider_dropdown.bind("<<ComboboxSelected>>", self._on_provider_select)
 
         fields = {
             "client_id": "Client ID:",
@@ -574,36 +630,49 @@ class ConfigDialog(tk.Toplevel):
             "use_pkce": "Use PKCE (True/False):"
         }
 
-        for i, (key, text) in enumerate(fields.items(), start=1):
+        for i, (key, text) in enumerate(fields.items(), start=2):
             label = tk.Label(frame, text=text)
             label.grid(row=i, column=0, sticky=tk.W, pady=2)
-            
+
             if key == "use_pkce":
-                # Special handling for boolean field
                 var = tk.BooleanVar(value=self.initial_config.get(key, True))
                 entry = tk.Checkbutton(frame, variable=var)
-                entry.var = var  # Store reference to variable
+                entry.var = var
             else:
                 entry = tk.Entry(frame, width=50)
                 default_values = {
                     "scopes": "read",
                     "redirect_uri": "http://localhost:8080/callback",
-                    "use_pkce": "True"
                 }
                 entry.insert(0, self.initial_config.get(key, default_values.get(key, "")))
-            
+
             entry.grid(row=i, column=1, sticky=tk.EW, pady=2)
             self.entries[key] = entry
 
         frame.grid_columnconfigure(1, weight=1)
 
         button_frame = tk.Frame(frame)
-        button_frame.grid(row=len(fields) + 1, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=len(fields) + 2, column=0, columnspan=2, pady=10)
 
         save_button = tk.Button(button_frame, text="Save", command=self._save_config)
         save_button.pack(side=tk.LEFT, padx=5)
         cancel_button = tk.Button(button_frame, text="Cancel", command=self.destroy)
         cancel_button.pack(side=tk.LEFT, padx=5)
+
+    def _on_provider_select(self, event=None):
+        provider_name = self.provider_var.get()
+        preset = self.provider_presets.get(provider_name)
+        if not preset:
+            return
+
+        for key, value in preset.items():
+            if key in self.entries:
+                entry = self.entries[key]
+                if isinstance(entry, tk.Entry):
+                    entry.delete(0, tk.END)
+                    entry.insert(0, str(value))
+                elif isinstance(entry, tk.Checkbutton):
+                    entry.var.set(bool(value))
 
     def _save_config(self):
         self.result = {}
@@ -611,9 +680,8 @@ class ConfigDialog(tk.Toplevel):
             if key == "use_pkce":
                 self.result[key] = entry.var.get()
             elif key == "scopes":
-                # Convert comma-separated string to list
                 scopes_str = entry.get().strip()
-                self.result[key] = [s.strip() for s in scopes_str.split(",")] if scopes_str else ["read"]
+                self.result[key] = [s.strip() for s in scopes_str.split(",") if s.strip()]
             else:
                 self.result[key] = entry.get()
         self.destroy()
