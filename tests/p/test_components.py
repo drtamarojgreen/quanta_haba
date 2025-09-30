@@ -67,6 +67,9 @@ class TestClass {
 const arrowFunction = () => {
     console.log('arrow function');
 };
+
+let anotherArrow = (a,b) => a + b;
+var finalArrow = () => {};
 """
         
         self.panel.update_symbols(javascript_code, 'javascript')
@@ -76,6 +79,42 @@ const arrowFunction = () => {
         
         self.assertIn('regularFunction', items)
         self.assertIn('TestClass', items)
+        self.assertIn('arrowFunction', items)
+        self.assertIn('anotherArrow', items)
+        self.assertIn('finalArrow', items)
+
+    def test_update_symbols_java_classes_and_methods(self):
+        """Test updating symbols with Java classes and methods"""
+        java_code = """
+public class Animal {
+    private String name;
+
+    public Animal(String name) {
+        this.name = name;
+    }
+
+    public void makeSound() {
+        System.out.println("The animal makes a sound");
+    }
+}
+
+interface Vehicle {
+    void start();
+    void stop();
+}
+"""
+
+        self.panel.update_symbols(java_code, 'java')
+
+        # Get items from listbox
+        items = [self.panel.listbox.get(i) for i in range(self.panel.listbox.size())]
+
+        self.assertIn('Animal', items)
+        self.assertIn('Animal', items) # Constructor
+        self.assertIn('makeSound', items)
+        self.assertIn('Vehicle', items)
+        self.assertIn('start', items)
+        self.assertIn('stop', items)
         
     def test_update_symbols_cpp_functions(self):
         """Test updating symbols with C++ functions"""
@@ -210,7 +249,8 @@ private:
     int value;
     
 public:
-    // FIXME: This constructor doesn't validate input
+    /* FIXME: This constructor
+     * doesn't validate input */
     Calculator(int v) : value(v) {}
     
     int getValue() {
@@ -228,8 +268,30 @@ public:
         todo_items = [item for item in items if 'TODO' in item.upper()]
         fixme_items = [item for item in items if 'FIXME' in item.upper()]
         
-        self.assertEqual(len(todo_items), 2)  # Two TODO items
-        self.assertEqual(len(fixme_items), 1)  # One FIXME item
+        self.assertEqual(len(todo_items), 2)
+        self.assertEqual(len(fixme_items), 1)
+        self.assertTrue(any('7:' in item and 'This constructor' in item for item in items))
+
+    def test_update_todos_java_comments(self):
+        """Test updating TODOs with Java comments"""
+        java_code = """
+// TODO: Add a new feature
+public class Main {
+    /*
+     * FIXME: Refactor this method.
+     * It is too complex.
+     */
+    public void complexMethod() {
+        // Just a regular comment
+    }
+}
+"""
+        self.panel.update_todos(java_code, 'java')
+        items = [self.panel.listbox.get(i) for i in range(self.panel.listbox.size())]
+
+        self.assertEqual(len(items), 2)
+        self.assertTrue(any('2:' in item and 'Add a new feature' in item for item in items))
+        self.assertTrue(any('4:' in item and 'Refactor this method' in item for item in items))
         
     def test_update_todos_case_insensitive(self):
         """Test that TODO/FIXME detection is case insensitive"""
@@ -380,6 +442,65 @@ struct CppStruct {
         self.assertIn('CppClass', cpp_items)
         self.assertIn('CppStruct', cpp_items)
 
+    def test_given_java_code_with_symbols_and_todos_when_updated_then_extracts_all(self):
+        """
+        Given: Java code with classes, methods, and TODOs
+        When: Symbols and TODOs are updated
+        Then: Extracts all relevant items correctly
+        """
+        # Given
+        symbol_panel = SymbolOutlinePanel(self.root)
+        todo_panel = TodoExplorerPanel(self.root)
+        java_code = """
+public class BankAccount {
+    // TODO: Add account number validation
+    private double balance;
+
+    public BankAccount(double initialBalance) {
+        this.balance = initialBalance;
+    }
+
+    /* FIXME: This could be more efficient */
+    public void deposit(double amount) {
+        this.balance += amount;
+    }
+}
+"""
+        # When
+        symbol_panel.update_symbols(java_code, 'java')
+        todo_panel.update_todos(java_code, 'java')
+
+        # Then - Symbols
+        symbol_items = [symbol_panel.listbox.get(i) for i in range(symbol_panel.listbox.size())]
+        self.assertIn('BankAccount', symbol_items)
+        self.assertIn('BankAccount', symbol_items) # Constructor
+        self.assertIn('deposit', symbol_items)
+
+        # Then - TODOs
+        todo_items = [todo_panel.listbox.get(i) for i in range(todo_panel.listbox.size())]
+        self.assertEqual(len(todo_items), 2)
+        self.assertTrue(any('3:' in item and 'Add account number validation' in item for item in todo_items))
+        self.assertTrue(any('9:' in item and 'This could be more efficient' in item for item in todo_items))
+
+    def test_given_unsupported_language_when_updated_then_no_items_extracted(self):
+        """
+        Given: An unsupported language
+        When: Symbols and TODOs are updated
+        Then: No items are extracted
+        """
+        # Given
+        symbol_panel = SymbolOutlinePanel(self.root)
+        todo_panel = TodoExplorerPanel(self.root)
+        some_code = "let x = 1;"
+
+        # When
+        symbol_panel.update_symbols(some_code, 'rust')
+        todo_panel.update_todos(some_code, 'rust')
+
+        # Then
+        self.assertEqual(symbol_panel.listbox.size(), 0)
+        self.assertEqual(todo_panel.listbox.size(), 0)
+
 
 class TestComponentsIntegration(unittest.TestCase):
     """Integration tests for Components"""
@@ -430,6 +551,48 @@ class Circle:
         self.assertIn('Add documentation', todo_contents)
         self.assertIn('Validate input', todo_contents)
         self.assertIn('Add radius validation', todo_contents)
+
+    def test_symbol_and_todo_panels_work_together_java(self):
+        """Test that symbol and TODO panels can work together with Java code"""
+        symbol_panel = SymbolOutlinePanel(self.root)
+        todo_panel = TodoExplorerPanel(self.root)
+
+        java_code = """
+package com.example;
+
+// TODO: Add full Javadoc for this class
+public class AdvancedProcessor {
+
+    /* FIXME: This needs to be thread-safe */
+    public List<String> process(List<String> data) {
+        // TODO: Implement the actual processing logic
+        return data;
+    }
+
+    interface ResultHandler {
+        void onSuccess();
+        void onError();
+    }
+}
+"""
+        # Update both panels
+        symbol_panel.update_symbols(java_code, 'java')
+        todo_panel.update_todos(java_code, 'java')
+
+        # Check symbols
+        symbol_items = [symbol_panel.listbox.get(i) for i in range(symbol_panel.listbox.size())]
+        self.assertIn('AdvancedProcessor', symbol_items)
+        self.assertIn('process', symbol_items)
+        self.assertIn('ResultHandler', symbol_items)
+        self.assertIn('onSuccess', symbol_items)
+        self.assertIn('onError', symbol_items)
+
+        # Check TODOs
+        todo_items = [todo_panel.listbox.get(i) for i in range(todo_panel.listbox.size())]
+        self.assertEqual(len(todo_items), 3)
+        self.assertTrue(any('4:' in item and 'Add full Javadoc' in item for item in todo_items))
+        self.assertTrue(any('7:' in item and 'This needs to be thread-safe' in item for item in todo_items))
+        self.assertTrue(any('9:' in item and 'Implement the actual processing logic' in item for item in todo_items))
 
 
 if __name__ == '__main__':
