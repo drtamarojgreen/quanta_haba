@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
+import tkinter.font as tkFont
+import subprocess
+import os
 
 class MenuBar:
     """
@@ -15,6 +18,7 @@ class MenuBar:
         self.window = window
         self.menubar = tk.Menu(self.window.master)
         self.window.master.config(menu=self.menubar)
+        self.active_profile_var = tk.StringVar()
 
         # Determine which menu to create based on the window type
         if type(self.window).__name__ == 'QuantaDemoWindow':
@@ -22,6 +26,58 @@ class MenuBar:
         else: # Default to HabaEditor menu
             self.language_var = tk.StringVar(value=self.window.language)
             self.create_editor_menu()
+
+    def set_active_profile(self, profile_name):
+        """Sets the selected profile as active in the main window."""
+        self.window.active_profile_name = profile_name
+        self.active_profile_var.set(profile_name)
+        self.window.log_to_console(f"Active OAuth profile set to: {profile_name}")
+
+    def update_external_models_menu(self):
+        """Updates or creates the 'External Models' menu with dynamic profiles."""
+        # Find the 'External Models' menu or create it if it doesn't exist
+        try:
+            menu_index = self.menubar.index("External Models")
+            # Menu exists, clear it before repopulating
+            # We fetch the existing menu object instead of creating a new one
+            external_menu = self.menubar.nametowidget(self.menubar.entrycget(menu_index, "menu"))
+            external_menu.delete(0, tk.END)
+        except tk.TclError:
+            # Menu doesn't exist, create it
+            external_menu = tk.Menu(self.menubar, tearoff=0)
+            self.menubar.add_cascade(label="External Models", menu=external_menu)
+
+        external_menu.add_command(label="Configure Profiles...", command=self.window.open_config_dialog, accelerator="Ctrl+M")
+        external_menu.add_separator()
+
+        # --- Dynamic Profile Selection ---
+        profiles_menu = tk.Menu(external_menu, tearoff=0)
+        external_menu.add_cascade(label="Select Active Profile", menu=profiles_menu)
+
+        profiles = self.window.config_manager.get_profile_names()
+        if not profiles:
+            profiles_menu.add_command(label="No profiles configured", state="disabled")
+        else:
+            # Set the first profile as active if none is selected or the active one was deleted
+            if self.window.active_profile_name not in profiles:
+                self.set_active_profile(profiles[0])
+            else:
+                # Ensure the variable is in sync if it already has a value
+                self.active_profile_var.set(self.window.active_profile_name)
+
+            for name in profiles:
+                profiles_menu.add_radiobutton(
+                    label=name,
+                    variable=self.active_profile_var,
+                    value=name,
+                    command=lambda n=name: self.set_active_profile(n)
+                )
+
+        external_menu.add_separator()
+        external_menu.add_command(label="Connect Active Profile", command=self.window.connect_external_model)
+        external_menu.add_command(label="Check Authentication Status", command=self.window.check_auth_status_info)
+        external_menu.add_separator()
+        external_menu.add_command(label="Disconnect External Model", command=self.window.disconnect_external_model)
 
     def create_demo_menu(self):
         """Creates the menu for the QuantaDemoWindow."""
@@ -61,13 +117,7 @@ class MenuBar:
         llm_menu.add_command(label="Re-initialize Model", command=self.window.initialize_model)
 
         # --- External Models Menu ---
-        external_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="External Models", menu=external_menu)
-        external_menu.add_command(label="Configure OAuth...", command=self.window.open_config_dialog, accelerator="Ctrl+M")
-        external_menu.add_command(label="Connect to External Model", command=self.window.connect_external_model)
-        external_menu.add_command(label="Check Authentication Status", command=self.window.check_auth_status_info)
-        external_menu.add_separator()
-        external_menu.add_command(label="Disconnect External Model", command=self.window.disconnect_external_model)
+        self.update_external_models_menu()
 
         # --- Help Menu ---
         help_menu = tk.Menu(self.menubar, tearoff=0)
@@ -88,10 +138,6 @@ class MenuBar:
         # --- Edit Menu ---
         edit_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Edit", menu=edit_menu)
-        # Note: HabaEditor doesn't have these methods yet, they would need to be implemented
-        # edit_menu.add_command(label="Toggle Comment", command=self.window.toggle_comment, accelerator="Ctrl+/")
-        # edit_menu.add_command(label="Sort Imports", command=self.window.sort_imports)
-        # edit_menu.add_command(label="Upgrade String Formatting", command=self.window.upgrade_string_formatting)
 
         # --- LLM Assistant Menu ---
         llm_menu = tk.Menu(self.menubar, tearoff=0)
@@ -101,13 +147,7 @@ class MenuBar:
         llm_menu.add_command(label="Run Script", command=self.window.run_script)
 
         # --- External Models Menu ---
-        external_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="External Models", menu=external_menu)
-        external_menu.add_command(label="Configure OAuth...", command=self.window.open_config_dialog, accelerator="Ctrl+M")
-        external_menu.add_command(label="Connect to External Model", command=self.window.connect_external_model)
-        external_menu.add_command(label="Check Authentication Status", command=self.window.check_auth_status_info)
-        external_menu.add_separator()
-        external_menu.add_command(label="Disconnect External Model", command=self.window.disconnect_external_model)
+        self.update_external_models_menu()
 
         # --- Export Menu ---
         export_menu = tk.Menu(self.menubar, tearoff=0)
@@ -134,18 +174,21 @@ class MenuBar:
             "Quanta Haba Demo\n\nVersion 1.2\n\nA demonstration of a text editor with LLM-powered automation."
         )
 
+    def _find_git_root(self, path):
+        """Finds the root of the git repository for a given file path."""
+        if not path:
+            return None
+        start_path = os.path.dirname(os.path.abspath(path))
+        current_path = start_path
+        while True:
+            if os.path.exists(os.path.join(current_path, '.git')):
+                return current_path
+            parent_path = os.path.dirname(current_path)
+            if parent_path == current_path:
+                return None
+            current_path = parent_path
+
     # --- Git Feature Methods (should only be called from HabaEditor context) ---
-
-    def show_llm_guide(self):
-        messagebox.showinfo(
-            "LLM Assistant Guide",
-            "The LLM Assistant processes tasks in the Prompt Editor.\n\n"
-            "1. Write tasks starting with 'TODO:'.\n"
-            "2. Use 'Process Next TODO' to run one task.\n"
-            "3. Use 'Start Automation' to run all tasks sequentially.\n"
-            "4. The model will replace 'TODO:' with 'DONE:' upon completion."
-        )
-
     def _show_git_status_dialog(self, status_text):
         status_window = tk.Toplevel(self.window.master)
         status_window.title("Git Status")
@@ -160,7 +203,7 @@ class MenuBar:
         close_button.pack(pady=10)
 
     def git_status(self):
-        if not self.window.current_filepath:
+        if not hasattr(self.window, 'current_filepath') or not self.window.current_filepath:
             messagebox.showerror("Error", "No file opened. Please open a file in a git repository.")
             return
 
@@ -188,7 +231,7 @@ class MenuBar:
             messagebox.showerror("Error", f"Error running git status:\n{e.stderr}")
 
     def git_stage_file(self):
-        if not self.window.current_filepath:
+        if not hasattr(self.window, 'current_filepath') or not self.window.current_filepath:
             messagebox.showerror("Error", "No file opened. Please open a file to stage.")
             return
 
@@ -259,7 +302,7 @@ class MenuBar:
         cancel_button.pack(side=tk.LEFT, padx=10)
 
     def git_commit(self):
-        if not self.window.current_filepath:
+        if not hasattr(self.window, 'current_filepath') or not self.window.current_filepath:
             messagebox.showerror("Error", "No file opened. Please open a file in a git repository.")
             return
 
@@ -299,7 +342,7 @@ class MenuBar:
         close_button.pack(pady=10)
 
     def git_log(self):
-        if not self.window.current_filepath:
+        if not hasattr(self.window, 'current_filepath') or not self.window.current_filepath:
             messagebox.showerror("Error", "No file opened. Please open a file in a git repository.")
             return
 

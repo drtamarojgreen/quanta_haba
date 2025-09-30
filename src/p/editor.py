@@ -21,6 +21,7 @@ try:
     from .script_runner import ScriptRunner
     from .html_exporter import HtmlExporter
     from .oauth_client import OAuthClient
+    from .config_manager import ConfigManager
 except ImportError:
     from menu import MenuBar
     from haba_parser import HabaParser, HabaData
@@ -28,6 +29,7 @@ except ImportError:
     from script_runner import ScriptRunner
     from html_exporter import HtmlExporter
     from oauth_client import OAuthClient
+    from config_manager import ConfigManager
 
 
 class QuantaDemoWindow(tk.Toplevel):
@@ -36,7 +38,8 @@ class QuantaDemoWindow(tk.Toplevel):
         self.title("Quanta Haba Demo")
         self.geometry("1000x700")
         
-        # Initialize variables
+        # Initialize managers and variables
+        self.config_manager = ConfigManager()
         self.model = None
         self.tokenizer = None
         self.work_products = []
@@ -44,7 +47,8 @@ class QuantaDemoWindow(tk.Toplevel):
         self.is_recording_macro = tk.BooleanVar(value=False)
         self.recorded_macro = []
         self.external_model_client = external_model_client
-        
+        self.active_profile_name = None
+
         # Create widgets first, then initialize model
         self.create_widgets()
         self.initialize_model()
@@ -413,34 +417,36 @@ class QuantaDemoWindow(tk.Toplevel):
 
     def open_config_dialog(self, event=None):
         """Open OAuth configuration dialog for demo window"""
-        if not hasattr(self, 'external_model_config'):
-            self.external_model_config = {}
-        
-        dialog = ConfigDialog(self, self.external_model_config)
-        if dialog.result:
-            self.external_model_config = dialog.result
-            messagebox.showinfo("Configuration Saved", "External model OAuth configuration has been updated.")
+        dialog = ConfigDialog(self, self.config_manager)
+        # Dialog manages its own saving, but we need to update the menu
+        self.menu_bar.update_external_models_menu()
+
 
     def connect_external_model(self):
         """Connect to external model using OAuth for demo window"""
-        if not hasattr(self, 'external_model_config') or not self.external_model_config:
-            messagebox.showwarning("Configuration Missing", "Please configure the external model first (External Models > Configure OAuth...).")
+        if not self.active_profile_name:
+            messagebox.showwarning("No Profile Selected", "Please select an active profile from the External Models menu or configure one first.")
+            return
+
+        config = self.config_manager.get_config(self.active_profile_name)
+        if not config:
+            messagebox.showerror("Configuration Error", f"Could not load configuration for profile: {self.active_profile_name}")
             return
         
         try:
-            # Create OAuth client with enhanced configuration
-            self.external_model_client = OAuthClient(self.external_model_config)
+            # Create OAuth client with the selected profile's configuration
+            self.external_model_client = OAuthClient(config, provider_name=self.active_profile_name)
             
             # Check if already authenticated
             if self.external_model_client.is_authenticated():
                 status = self.external_model_client.get_auth_status()
                 messagebox.showinfo("Already Authenticated", 
-                    f"External model is already authenticated.\n"
+                    f"Already authenticated with '{self.active_profile_name}'.\n"
                     f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
                 return
             
             # Start OAuth flow
-            self.log_to_console("Starting OAuth authentication...")
+            self.log_to_console(f"Starting OAuth authentication for '{self.active_profile_name}'...")
             httpd = self.external_model_client.initiate_authorization()
             self.after(100, self.check_auth_status, httpd)
             
@@ -471,15 +477,16 @@ class QuantaDemoWindow(tk.Toplevel):
         """Disconnect and clear OAuth tokens for demo window"""
         if hasattr(self, 'external_model_client') and self.external_model_client:
             self.external_model_client.logout()
-            messagebox.showinfo("Disconnected", "External model has been disconnected and tokens cleared.")
-            self.log_to_console("External model disconnected.")
+            messagebox.showinfo("Disconnected", f"Disconnected from '{self.external_model_client.provider_name}' and cleared tokens.")
+            self.log_to_console(f"External model '{self.external_model_client.provider_name}' disconnected.")
+            self.external_model_client = None
         else:
             messagebox.showinfo("Not Connected", "No external model connection to disconnect.")
 
     def check_auth_status_info(self):
         """Display current authentication status for demo window"""
         if not hasattr(self, 'external_model_client') or not self.external_model_client:
-            messagebox.showinfo("Authentication Status", "No external model client configured.")
+            messagebox.showinfo("Authentication Status", "No external model client configured or connected.")
             return
         
         status = self.external_model_client.get_auth_status()
@@ -487,9 +494,9 @@ class QuantaDemoWindow(tk.Toplevel):
             expires_info = ""
             if "expires_in_minutes" in status:
                 expires_info = f"\nToken expires in {status['expires_in_minutes']} minutes"
-            messagebox.showinfo("Authentication Status", f"✓ Authenticated{expires_info}")
+            messagebox.showinfo("Authentication Status", f"✓ Authenticated to '{self.external_model_client.provider_name}'{expires_info}")
         else:
-            messagebox.showinfo("Authentication Status", "✗ Not authenticated")
+            messagebox.showinfo("Authentication Status", f"✗ Not authenticated to '{self.external_model_client.provider_name}'")
 
 # --- HabaEditor and other classes remain unchanged for now ---
 
@@ -541,82 +548,154 @@ def lint_javascript_text(script_text_widget):
 
 
 class ConfigDialog(tk.Toplevel):
-    def __init__(self, parent, initial_config=None):
+    def __init__(self, parent, config_manager):
         super().__init__(parent)
         self.title("External Model OAuth Configuration")
         self.transient(parent)
         self.grab_set()
 
-        self.result = None
-        self.initial_config = initial_config or {}
-
+        self.config_manager = config_manager
         self.entries = {}
+        self.profile_var = tk.StringVar()
+
         self.create_widgets()
+        self.load_profiles()
         self.wait_window(self)
 
     def create_widgets(self):
-        frame = tk.Frame(self, padx=10, pady=10)
-        frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = tk.Frame(self, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Add instructions
-        instructions = tk.Label(frame, text="Configure OAuth 2.0 settings for external model provider:", 
-                               font=("Arial", 10, "bold"))
-        instructions.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
+        # --- Profile Management Section ---
+        profile_frame = ttk.LabelFrame(main_frame, text="Configuration Profiles", padding=(10, 5))
+        profile_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
 
-        fields = {
-            "client_id": "Client ID:",
-            "client_secret": "Client Secret:",
-            "authorization_url": "Authorization URL:",
-            "token_url": "Token URL:",
-            "api_base_url": "API Base URL:",
-            "scopes": "Scopes (comma-separated):",
-            "redirect_uri": "Redirect URI:",
-            "use_pkce": "Use PKCE (True/False):"
+        ttk.Label(profile_frame, text="Profile:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.profile_combobox = ttk.Combobox(profile_frame, textvariable=self.profile_var)
+        self.profile_combobox.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        self.profile_combobox.bind("<<ComboboxSelected>>", self._on_profile_select)
+
+        profile_frame.grid_columnconfigure(1, weight=1)
+
+        # --- Settings Section ---
+        settings_frame = ttk.LabelFrame(main_frame, text="Profile Settings", padding=(10, 5))
+        settings_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+
+        self.fields = {
+            "client_id": "Client ID:", "client_secret": "Client Secret:",
+            "authorization_url": "Authorization URL:", "token_url": "Token URL:",
+            "api_base_url": "API Base URL:", "scopes": "Scopes (comma-separated):",
+            "redirect_uri": "Redirect URI:", "use_pkce": "Use PKCE:"
         }
 
-        for i, (key, text) in enumerate(fields.items(), start=1):
-            label = tk.Label(frame, text=text)
-            label.grid(row=i, column=0, sticky=tk.W, pady=2)
+        for i, (key, text) in enumerate(self.fields.items()):
+            label = ttk.Label(settings_frame, text=text)
+            label.grid(row=i, column=0, sticky="w", pady=2, padx=5)
             
             if key == "use_pkce":
-                # Special handling for boolean field
-                var = tk.BooleanVar(value=self.initial_config.get(key, True))
-                entry = tk.Checkbutton(frame, variable=var)
-                entry.var = var  # Store reference to variable
+                var = tk.BooleanVar()
+                entry = ttk.Checkbutton(settings_frame, variable=var)
+                entry.var = var
             else:
-                entry = tk.Entry(frame, width=50)
-                default_values = {
-                    "scopes": "read",
-                    "redirect_uri": "http://localhost:8080/callback",
-                    "use_pkce": "True"
-                }
-                entry.insert(0, self.initial_config.get(key, default_values.get(key, "")))
+                entry = ttk.Entry(settings_frame, width=60)
             
-            entry.grid(row=i, column=1, sticky=tk.EW, pady=2)
+            entry.grid(row=i, column=1, sticky="ew", pady=2, padx=5)
             self.entries[key] = entry
 
-        frame.grid_columnconfigure(1, weight=1)
+        settings_frame.grid_columnconfigure(1, weight=1)
 
-        button_frame = tk.Frame(frame)
-        button_frame.grid(row=len(fields) + 1, column=0, columnspan=2, pady=10)
+        # --- Action Buttons ---
+        button_frame = tk.Frame(main_frame)
+        button_frame.grid(row=2, column=1, sticky="e", pady=10)
 
-        save_button = tk.Button(button_frame, text="Save", command=self._save_config)
-        save_button.pack(side=tk.LEFT, padx=5)
-        cancel_button = tk.Button(button_frame, text="Cancel", command=self.destroy)
-        cancel_button.pack(side=tk.LEFT, padx=5)
+        self.save_button = ttk.Button(button_frame, text="Save Profile", command=self._save_profile)
+        self.save_button.pack(side=tk.LEFT, padx=5)
 
-    def _save_config(self):
-        self.result = {}
+        self.delete_button = ttk.Button(button_frame, text="Delete Profile", command=self._delete_profile)
+        self.delete_button.pack(side=tk.LEFT, padx=5)
+
+        close_button = ttk.Button(button_frame, text="Close", command=self.destroy)
+        close_button.pack(side=tk.LEFT, padx=5)
+
+    def load_profiles(self):
+        profiles = self.config_manager.get_profile_names()
+        self.profile_combobox['values'] = ["<New Profile>"] + profiles
+        if profiles:
+            self.profile_combobox.set(profiles[0])
+        else:
+            self.profile_combobox.set("<New Profile>")
+        self._on_profile_select()
+
+    def _on_profile_select(self, event=None):
+        profile_name = self.profile_var.get()
+        if profile_name == "<New Profile>":
+            self._clear_form()
+            self.delete_button.config(state="disabled")
+        else:
+            config = self.config_manager.get_config(profile_name)
+            if config:
+                self._populate_form(config)
+                self.delete_button.config(state="normal")
+
+    def _clear_form(self):
         for key, entry in self.entries.items():
             if key == "use_pkce":
-                self.result[key] = entry.var.get()
-            elif key == "scopes":
-                # Convert comma-separated string to list
-                scopes_str = entry.get().strip()
-                self.result[key] = [s.strip() for s in scopes_str.split(",")] if scopes_str else ["read"]
+                entry.var.set(True)
             else:
-                self.result[key] = entry.get()
-        self.destroy()
+                entry.delete(0, tk.END)
+        # Set default values for new profiles
+        self.entries["scopes"].insert(0, "read")
+        self.entries["redirect_uri"].insert(0, "http://localhost:8080/callback")
+
+    def _populate_form(self, config):
+        for key, entry in self.entries.items():
+            value = config.get(key)
+            if key == "use_pkce":
+                entry.var.set(value if isinstance(value, bool) else True)
+            else:
+                entry.delete(0, tk.END)
+                if value:
+                    # Join list of scopes back into a string
+                    if key == "scopes" and isinstance(value, list):
+                        entry.insert(0, ", ".join(value))
+                    else:
+                        entry.insert(0, value)
+
+    def _save_profile(self):
+        profile_name = self.profile_var.get()
+        if not profile_name or profile_name == "<New Profile>":
+            messagebox.showerror("Invalid Name", "Please enter a profile name.", parent=self)
+            return
+
+        config_data = {}
+        for key, entry in self.entries.items():
+            if key == "use_pkce":
+                config_data[key] = entry.var.get()
+            elif key == "scopes":
+                scopes_str = entry.get().strip()
+                config_data[key] = [s.strip() for s in scopes_str.split(",")] if scopes_str else []
+            else:
+                config_data[key] = entry.get().strip()
+
+        if self.config_manager.save_config(profile_name, config_data):
+            messagebox.showinfo("Success", f"Profile '{profile_name}' saved successfully.", parent=self)
+            self.load_profiles() # Refresh list
+            self.profile_combobox.set(profile_name) # Keep the saved profile selected
+        else:
+            messagebox.showerror("Error", "Failed to save profile.", parent=self)
+
+    def _delete_profile(self):
+        profile_name = self.profile_var.get()
+        if not profile_name or profile_name == "<New Profile>":
+            messagebox.showwarning("No Profile Selected", "Please select a profile to delete.", parent=self)
+            return
+
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete the profile '{profile_name}'?", parent=self):
+            if self.config_manager.delete_config(profile_name):
+                messagebox.showinfo("Success", f"Profile '{profile_name}' deleted.", parent=self)
+                self.load_profiles() # Refresh list and select "<New Profile>"
+            else:
+                messagebox.showerror("Error", f"Failed to delete profile '{profile_name}'.", parent=self)
 
 
 class HabaEditor(tk.Frame):
@@ -625,20 +704,24 @@ class HabaEditor(tk.Frame):
         self.master = master
         self.master.title("Haba Editor")
         self.pack(fill=tk.BOTH, expand=True)
+
+        # Initialize managers and variables
+        self.config_manager = ConfigManager()
         self.parser = HabaParser()
         self.script_runner = ScriptRunner()
         self.html_exporter = HtmlExporter()
         self.language = 'javascript' # Default language for the script panel
         self.external_model_client = None
-        self.external_model_config = {}
+        self.active_profile_name = None
+
         self.create_widgets()
         self.menu_bar = MenuBar(self)
 
     def open_config_dialog(self, event=None):
-        dialog = ConfigDialog(self, self.external_model_config)
-        if dialog.result:
-            self.external_model_config = dialog.result
-            messagebox.showinfo("Configuration Saved", "External model configuration has been updated.")
+        dialog = ConfigDialog(self, self.config_manager)
+        # Dialog is now self-contained, but we should update the menu
+        # in case profiles were added/deleted.
+        self.menu_bar.update_external_models_menu()
 
     def create_widgets(self):
         # Main content area with three panels
@@ -723,24 +806,29 @@ class HabaEditor(tk.Frame):
         self.script_text.edit_modified(False)
 
     def connect_external_model(self):
-        if not self.external_model_config:
-            messagebox.showwarning("Configuration Missing", "Please configure the external model first (Ctrl+M).")
+        if not self.active_profile_name:
+            messagebox.showwarning("No Profile Selected", "Please select an active profile from the External Models menu or configure one first.")
+            return
+
+        config = self.config_manager.get_config(self.active_profile_name)
+        if not config:
+            messagebox.showerror("Configuration Error", f"Could not load configuration for profile: {self.active_profile_name}")
             return
         
         try:
-            # Create OAuth client with enhanced configuration
-            self.external_model_client = OAuthClient(self.external_model_config)
+            # Create OAuth client with the selected profile's configuration
+            self.external_model_client = OAuthClient(config, provider_name=self.active_profile_name)
             
             # Check if already authenticated
             if self.external_model_client.is_authenticated():
                 status = self.external_model_client.get_auth_status()
                 messagebox.showinfo("Already Authenticated", 
-                    f"External model is already authenticated.\n"
+                    f"Already authenticated with '{self.active_profile_name}'.\n"
                     f"Token expires in {status.get('expires_in_minutes', 'unknown')} minutes.")
                 return
             
             # Start OAuth flow
-            self.log_to_console("Starting OAuth authentication...")
+            self.log_to_console(f"Starting OAuth authentication for '{self.active_profile_name}'...")
             httpd = self.external_model_client.initiate_authorization()
             self.after(100, self.check_auth_status, httpd)
             
@@ -770,16 +858,18 @@ class HabaEditor(tk.Frame):
     def disconnect_external_model(self):
         """Disconnect and clear OAuth tokens"""
         if self.external_model_client:
+            provider_name = self.external_model_client.provider_name
             self.external_model_client.logout()
-            messagebox.showinfo("Disconnected", "External model has been disconnected and tokens cleared.")
-            self.log_to_console("External model disconnected.")
+            messagebox.showinfo("Disconnected", f"Disconnected from '{provider_name}' and cleared tokens.")
+            self.log_to_console(f"External model '{provider_name}' disconnected.")
+            self.external_model_client = None
         else:
             messagebox.showinfo("Not Connected", "No external model connection to disconnect.")
 
     def check_auth_status_info(self):
         """Display current authentication status"""
         if not self.external_model_client:
-            messagebox.showinfo("Authentication Status", "No external model client configured.")
+            messagebox.showinfo("Authentication Status", "No external model client configured or connected.")
             return
         
         status = self.external_model_client.get_auth_status()
@@ -787,9 +877,9 @@ class HabaEditor(tk.Frame):
             expires_info = ""
             if "expires_in_minutes" in status:
                 expires_info = f"\nToken expires in {status['expires_in_minutes']} minutes"
-            messagebox.showinfo("Authentication Status", f"✓ Authenticated{expires_info}")
+            messagebox.showinfo("Authentication Status", f"✓ Authenticated to '{self.external_model_client.provider_name}'{expires_info}")
         else:
-            messagebox.showinfo("Authentication Status", "✗ Not authenticated")
+            messagebox.showinfo("Authentication Status", f"✗ Not authenticated to '{self.external_model_client.provider_name}'")
 
     def launch_quanta_demo(self):
         demo_window = QuantaDemoWindow(self.master, external_model_client=self.external_model_client)
@@ -842,6 +932,7 @@ class HabaEditor(tk.Frame):
         )
         if not filepath:
             return
+        self.current_filepath = filepath
         with open(filepath, "r") as f:
             content = f.read()
         self.raw_text.delete("1.0", tk.END)
@@ -962,6 +1053,7 @@ class HabaEditor(tk.Frame):
 
 def main():
     root = tk.Tk()
+    root.title("Haba Editor")
     app = HabaEditor(master=root)
 
     # Check for command-line arguments
@@ -969,6 +1061,7 @@ def main():
         filepath = sys.argv[1]
         if os.path.exists(filepath):
             try:
+                app.current_filepath = filepath
                 with open(filepath, "r") as f:
                     content = f.read()
                 app.raw_text.delete("1.0", tk.END)
