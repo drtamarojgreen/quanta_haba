@@ -56,6 +56,38 @@ The project also defines a collection of C++ and Python editor enhancements, des
 - PEP 8 style linting
 - Jupyter-like cell execution with PDB debugger integration
 
+### Building and Testing the C++ Editor
+
+**Building the Editor**
+
+The C++ editor is located in the `src/c/` directory and can be built using CMake:
+
+```bash
+cd src/c
+mkdir build
+cd build
+cmake ..
+make
+```
+
+This will generate an executable in the `build` directory.
+
+**Testing the Editor**
+
+To run the tests for the C++ editor, run the following command from the `build` directory:
+
+```bash
+ctest
+```
+
+### Running the Python Editor
+
+The Python editor is located in the `src/p/` directory and can be run as follows:
+
+```bash
+python3 src/p/editor.py
+```
+
 🚀 Roadmap
 
 Alpha (MVP)
