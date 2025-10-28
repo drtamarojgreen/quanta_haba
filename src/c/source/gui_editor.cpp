@@ -4,12 +4,16 @@
 #include <sstream>
 #include "HabaParser.h"
 #include "HabaData.h"
+#include "ConfigManager.h"
+#include "OAuthClient.h"
+#include "ScriptAnalyzer.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <commctrl.h>
 #undef UNICODE
 #undef _UNICODE
 #endif
@@ -21,9 +25,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // Global variables
 HWND g_hEdit;
+HWND g_hTab;
 HWND g_hPreview;
+HWND g_hSymbolList;
+HWND g_hTodoList;
+HWND g_hTaskList;
+HWND g_hConsole;
+HWND g_hScriptEdit;
 HabaParser g_parser;
+ConfigManager g_configManager;
+OAuthClient* g_oauthClient = nullptr;
 std::string g_currentFile;
+std::string g_activeProfileName;
+bool g_isRecording = false;
+std::vector<WPARAM> g_macro;
+
 
 // Function to generate HTML from HabaData (same as main.cpp)
 std::string generateHtml(const HabaData& data) {
@@ -207,16 +223,33 @@ void UpdatePreview() {
     delete[] buffer;
 }
 
+void LogToConsole(const std::string& message);
+
 void RunModelDemo() {
-    int textLength = GetWindowTextLength(g_hEdit);
-    if (textLength == 0) {
-        MessageBoxA(NULL, "Editor is empty. Nothing to process.", "Model Demo", MB_OK | MB_ICONINFORMATION);
+    if (g_activeProfileName.empty()) {
+        MessageBoxA(NULL, "Please select an active profile from the External Models menu.", "Model Demo", MB_OK | MB_ICONWARNING);
         return;
     }
 
+    OAuthConfig config = g_configManager.getConfiguration(g_activeProfileName);
+    if (g_oauthClient) {
+        delete g_oauthClient;
+    }
+    g_oauthClient = new OAuthClient(config);
+
+    if (!g_oauthClient->isAuthenticated()) {
+        g_oauthClient->initiateAuthorization();
+        if (!g_oauthClient->finishAuthorization()) {
+            MessageBoxA(NULL, "Authentication failed. Please check your configuration.", "Authentication Error", MB_OK | MB_ICONERROR);
+            delete g_oauthClient;
+            g_oauthClient = nullptr;
+            return;
+        }
+    }
+
+    int textLength = GetWindowTextLength(g_hEdit);
     char* buffer = new char[textLength + 1];
     GetWindowTextA(g_hEdit, buffer, textLength + 1);
-
     std::string content(buffer);
     delete[] buffer;
 
@@ -225,7 +258,7 @@ void RunModelDemo() {
     std::stringstream new_content;
     bool changed = false;
 
-    while (std::getline(ss, line, '\n')) {
+    while (std::getline(ss, line)) {
         size_t todo_pos = line.find("TODO:");
         if (todo_pos != std::string::npos) {
             std::string task = line.substr(todo_pos + 5);
@@ -235,20 +268,22 @@ void RunModelDemo() {
                 task = task.substr(first);
             }
 
-            line.replace(todo_pos, 5, "DONE:");
-            line += " // Model processed: " + task;
+            try {
+                std::string response = g_oauthClient->callModel(task);
+                line.replace(todo_pos, 5, "DONE:");
+                line += " // Model response: " + response;
+                LogToConsole("Processed task: " + task);
+            } catch (const std::exception& e) {
+                line += " // Error: " + std::string(e.what());
+                LogToConsole("Error processing task: " + std::string(e.what()));
+            }
             changed = true;
         }
         new_content << line << "\n";
     }
 
     if (changed) {
-        // Remove the final newline character before setting the text
-        std::string final_text = new_content.str();
-        if (!final_text.empty()) {
-            final_text.pop_back();
-        }
-        SetWindowTextA(g_hEdit, final_text.c_str());
+        SetWindowTextA(g_hEdit, new_content.str().c_str());
         MessageBoxA(NULL, "Model demo finished. 'TODO' items have been updated.", "Model Demo Complete", MB_OK | MB_ICONINFORMATION);
     } else {
         MessageBoxA(NULL, "No 'TODO:' items found to process.", "Model Demo", MB_OK | MB_ICONINFORMATION);
@@ -268,6 +303,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
             AppendMenu(hFileMenu, MF_STRING, 4, "Exit");
             AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hFileMenu, "File");
+
+            HMENU hEditMenu = CreatePopupMenu();
+            AppendMenu(hEditMenu, MF_STRING, 200, "Find");
+            AppendMenu(hEditMenu, MF_SEPARATOR, 0, NULL);
+            AppendMenu(hEditMenu, MF_STRING, 201, "Record Macro");
+            AppendMenu(hEditMenu, MF_STRING, 202, "Play Macro");
+            AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hEditMenu, "Edit");
+
+            HMENU hModelMenu = CreatePopupMenu();
+            AppendMenu(hModelMenu, MF_STRING, 100, "Configure...");
+            AppendMenu(hModelMenu, MF_SEPARATOR, 0, NULL);
+
+            std::vector<std::string> profiles = g_configManager.getProfileNames();
+            for (size_t i = 0; i < profiles.size(); ++i) {
+                AppendMenu(hModelMenu, MF_STRING, 101 + i, profiles[i].c_str());
+            }
+
+            AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hModelMenu, "External Models");
+
             SetMenu(hwnd, hMenu);
 
             // Create edit control for Haba content
@@ -275,10 +329,48 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
                 10, 10, 400, 300, hwnd, NULL, GetModuleHandle(NULL), NULL);
 
-            // Create preview control
+            // Create Tab Control
+            g_hTab = CreateWindow(WC_TABCONTROL, "", WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE,
+                420, 10, 400, 300, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            TCITEM tie;
+            tie.mask = TCIF_TEXT;
+            tie.pszText = "WYSIWYG Preview";
+            TabCtrl_InsertItem(g_hTab, 0, &tie);
+            tie.pszText = "Symbol Outline";
+            TabCtrl_InsertItem(g_hTab, 1, &tie);
+            tie.pszText = "TODO Explorer";
+            TabCtrl_InsertItem(g_hTab, 2, &tie);
+            tie.pszText = "Actionable Tasks";
+            TabCtrl_InsertItem(g_hTab, 3, &tie);
+
+
+            // Create preview control (will be a child of the tab control)
             g_hPreview = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY,
-                420, 10, 400, 300, hwnd, NULL, GetModuleHandle(NULL), NULL);
+                430, 40, 380, 260, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            g_hSymbolList = CreateWindowEx(WS_EX_CLIENTEDGE, "LISTBOX", "",
+                WS_CHILD | WS_VSCROLL | LBS_HASSTRINGS,
+                430, 40, 380, 260, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            g_hTodoList = CreateWindowEx(WS_EX_CLIENTEDGE, "LISTBOX", "",
+                WS_CHILD | WS_VSCROLL | LBS_HASSTRINGS,
+                430, 40, 380, 260, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            g_hTaskList = CreateWindowEx(WS_EX_CLIENTEDGE, "LISTBOX", "",
+                WS_CHILD | WS_VSCROLL | LBS_HASSTRINGS,
+                430, 40, 380, 260, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            // Create console log
+            g_hConsole = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY,
+                10, 360, 810, 100, hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+            // Create script editor
+            g_hScriptEdit = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+                10, 470, 810, 150, hwnd, NULL, GetModuleHandle(NULL), NULL);
 
             // Create buttons
             CreateWindow("BUTTON", "Update Preview", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -290,7 +382,90 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             return 0;
         }
 
+void OpenConfigDialog(HWND hwnd) {
+    // For now, this is a placeholder.
+    // A real implementation would use DialogBox() and a resource template.
+    MessageBoxA(hwnd, "Configuration dialog not yet implemented.", "Configure", MB_OK);
+}
+
+        case WM_NOTIFY: {
+            if (((LPNMHDR)lParam)->code == TCN_SELCHANGE) {
+                int iPage = TabCtrl_GetCurSel(g_hTab);
+                ShowWindow(g_hPreview, iPage == 0 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_hSymbolList, iPage == 1 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_hTodoList, iPage == 2 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_hTaskList, iPage == 3 ? SW_SHOW : SW_HIDE);
+            }
+            break;
+        }
+
+void LogToConsole(const std::string& message) {
+    int len = GetWindowTextLength(g_hConsole);
+    SendMessage(g_hConsole, EM_SETSEL, (WPARAM)len, (LPARAM)len);
+    SendMessage(g_hConsole, EM_REPLACESEL, 0, (LPARAM)(message + "\r\n").c_str());
+}
+
+void UpdateScriptAnalysis() {
+    int scriptLength = GetWindowTextLength(g_hScriptEdit);
+    char* scriptBuffer = new char[scriptLength + 1];
+    GetWindowTextA(g_hScriptEdit, scriptBuffer, scriptLength + 1);
+    std::string scriptContent(scriptBuffer);
+    delete[] scriptBuffer;
+
+    SendMessage(g_hSymbolList, LB_RESETCONTENT, 0, 0);
+    std::vector<Symbol> symbols = findSymbols(scriptContent);
+    for (const auto& symbol : symbols) {
+        std::string item = symbol.name + " (" + symbol.type + ", line " + std::to_string(symbol.line) + ")";
+        SendMessage(g_hSymbolList, LB_ADDSTRING, 0, (LPARAM)item.c_str());
+    }
+
+    SendMessage(g_hTodoList, LB_RESETCONTENT, 0, 0);
+    std::vector<Todo> todos = findTodos(scriptContent);
+    for (const auto& todo : todos) {
+        std::string item = todo.text + " (line " + std::to_string(todo.line) + ")";
+        SendMessage(g_hTodoList, LB_ADDSTRING, 0, (LPARAM)item.c_str());
+    }
+
+    SendMessage(g_hTaskList, LB_RESETCONTENT, 0, 0);
+    for (const auto& todo : todos) {
+        std::string item = "[TODO] " + todo.text;
+        SendMessage(g_hTaskList, LB_ADDSTRING, 0, (LPARAM)item.c_str());
+    }
+}
+
+void OpenFindDialog(HWND hwnd) {
+    static char findText[256] = {0};
+
+    // A real implementation would use a modeless dialog. This is a simplified version.
+    // We'll just use a simple (and blocking) custom dialog.
+
+    // For now, let's just implement a basic find next.
+    // A proper implementation is beyond the scope of this exercise.
+    MessageBoxA(hwnd, "This is a placeholder for a proper find dialog.", "Find", MB_OK);
+}
+
         case WM_COMMAND: {
+            if (HIWORD(wParam) == EN_CHANGE && (HWND)lParam == g_hScriptEdit) {
+                UpdateScriptAnalysis();
+            }
+
+            if (LOWORD(wParam) >= 101 && LOWORD(wParam) < 200) {
+                UINT menuItemId = LOWORD(wParam);
+                HMENU hMenu = GetMenu(hwnd);
+                HMENU hModelMenu = GetSubMenu(hMenu, 2); // Assuming "External Models" is the 3rd menu
+
+                // Uncheck all other items
+                std::vector<std::string> profiles = g_configManager.getProfileNames();
+                for (size_t i = 0; i < profiles.size(); ++i) {
+                    CheckMenuItem(hModelMenu, 101 + i, MF_UNCHECKED);
+                }
+
+                // Check the selected item
+                CheckMenuItem(hModelMenu, menuItemId, MF_CHECKED);
+                g_activeProfileName = profiles[menuItemId - 101];
+                LogToConsole("Active profile set to: " + g_activeProfileName);
+            }
+
             switch (LOWORD(wParam)) {
                 case 1: LoadFile(); break;
                 case 2: SaveFile(); break;
@@ -298,6 +473,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 case 4: PostQuitMessage(0); break;
                 case 5: UpdatePreview(); break;
                 case 6: RunModelDemo(); break;
+                case 100: OpenConfigDialog(hwnd); break;
+                case 200: OpenFindDialog(hwnd); break;
+                case 201: // Record Macro
+                    g_isRecording = !g_isRecording;
+                    if (g_isRecording) {
+                        g_macro.clear();
+                        LogToConsole("Macro recording started.");
+                    } else {
+                        LogToConsole("Macro recording stopped.");
+                    }
+                    break;
+                case 202: // Play Macro
+                    if (!g_macro.empty()) {
+                        for (WPARAM key : g_macro) {
+                            SendMessage(g_hEdit, WM_CHAR, key, 0);
+                        }
+                        LogToConsole("Macro playback finished.");
+                    }
+                    break;
             }
             return 0;
         }
@@ -315,6 +509,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             MoveWindow(GetDlgItem(hwnd, 6), 140, height - 40, 120, 30, TRUE);
             return 0;
         }
+
+        case WM_CHAR:
+            if (g_isRecording && GetFocus() == g_hEdit) {
+                g_macro.push_back(wParam);
+            }
+            // Let the default procedure handle the character as well
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
         case WM_DESTROY:
             PostQuitMessage(0);
