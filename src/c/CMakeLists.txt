@@ -7,26 +7,44 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define the executable target and list its source files
 add_executable(cli_editor
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli_editor.cpp
+    source/cli_editor.cpp
 )
 
 add_executable(gui_editor
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/gui_editor.cpp
+    source/gui_editor.cpp
 )
 
 add_executable(haba-converter
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/HabaParser.cpp
+    source/main.cpp
+    source/HabaParser.cpp
 )
 
 # Add the include directory to the include path
 target_include_directories(cli_editor PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    include
 )
 
 target_include_directories(haba-converter PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    include
 )
+
+# Enable testing with CTest
+enable_testing()
+
+# Create a test executable
+add_executable(run_tests_cmake
+    ../../tests/c/test_haba_parser.cpp
+    source/HabaParser.cpp
+)
+
+# Link include directories to the test executable
+target_include_directories(run_tests_cmake PRIVATE
+    include
+    ../../tests/c/
+)
+
+# Add a test to be run by CTest
+add_test(NAME HabaParserTest COMMAND run_tests_cmake)
 
 # A message to the user on how to build
 message(STATUS "--------------------------------------------------")

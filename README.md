@@ -67,6 +67,7 @@ cd src/c
 mkdir build
 cd build
 cmake ..
+cmake --build .
 make
 ```
 
@@ -78,6 +79,15 @@ To run the tests for the C++ editor, run the following command from the `build` 
 
 ```bash
 ctest
+```
+
+**Running Tests Manually with g++**
+
+Alternatively, you can compile and run the tests from the project root using `g++`:
+
+```bash
+g++ -std=c++17 -Isrc/c/include tests/c/test_haba_parser.cpp src/c/source/HabaParser.cpp -o run_tests
+./run_tests
 ```
 
 ### Running the Python Editor
