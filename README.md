@@ -56,6 +56,47 @@ The project also defines a collection of C++ and Python editor enhancements, des
 - PEP 8 style linting
 - Jupyter-like cell execution with PDB debugger integration
 
+### Building and Testing the C++ Editor
+
+**Building the Editor**
+
+The C++ editor is located in the `src/c/` directory and can be built using CMake:
+
+```bash
+cd src/c
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+This will generate an executable in the `build` directory.
+
+**Testing the Editor**
+
+To run the tests for the C++ editor, run the following command from the `build` directory:
+
+```bash
+ctest
+```
+
+**Running Tests Manually with g++**
+
+Alternatively, you can compile and run the tests from the project root using `g++`:
+
+```bash
+g++ -std=c++17 -Isrc/c/include tests/c/test_haba_parser.cpp src/c/source/HabaParser.cpp -o run_tests
+./run_tests
+```
+
+### Running the Python Editor
+
+The Python editor is located in the `src/p/` directory and can be run as follows:
+
+```bash
+python3 src/p/editor.py
+```
+
 🚀 Roadmap
 
 Alpha (MVP)
