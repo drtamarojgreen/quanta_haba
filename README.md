@@ -68,6 +68,7 @@ mkdir build
 cd build
 cmake ..
 cmake --build .
+make
 ```
 
 This will generate an executable in the `build` directory.
