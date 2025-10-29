@@ -32,19 +32,19 @@ HabaData HabaParser::parse(const std::string& raw_text) {
     std::smatch match;
 
     // Extract content layer
-    std::regex content_regex("<content_layer>(.*?)</content_layer>", std::regex::ECMAScript | std::regex::multiline);
+    std::regex content_regex("<content_layer>([\\s\\S]*?)</content_layer>", std::regex::ECMAScript);
     if (std::regex_search(raw_text, match, content_regex) && match.size() > 1) {
         data.content = trim(match[1].str());
     }
 
     // Extract presentation layer
-    std::regex presentation_regex("<presentation_layer>(.*?)</presentation_layer>", std::regex::ECMAScript | std::regex::multiline);
+    std::regex presentation_regex("<presentation_layer>([\\s\\S]*?)</presentation_layer>", std::regex::ECMAScript);
     if (std::regex_search(raw_text, match, presentation_regex) && match.size() > 1) {
         std::string presentation_text = match[1].str();
 
         // Extract containers
         std::smatch containers_match;
-        std::regex containers_regex("<containers>(.*?)</containers>", std::regex::ECMAScript | std::regex::multiline);
+        std::regex containers_regex("<containers>([\\s\\S]*?)</containers>", std::regex::ECMAScript);
         std::vector<std::string> containers;
         if (std::regex_search(presentation_text, containers_match, containers_regex) && containers_match.size() > 1) {
             std::string containers_block = trim(containers_match[1].str());
@@ -59,7 +59,7 @@ HabaData HabaParser::parse(const std::string& raw_text) {
 
         // Extract styles
         std::smatch styles_match;
-        std::regex styles_regex("<styles>(.*?)</styles>", std::regex::ECMAScript | std::regex::multiline);
+        std::regex styles_regex("<styles>([\\s\\S]*?)</styles>", std::regex::ECMAScript);
         std::vector<std::string> styles;
         if (std::regex_search(presentation_text, styles_match, styles_regex) && styles_match.size() > 1) {
             std::string styles_block = trim(styles_match[1].str());
@@ -80,7 +80,7 @@ HabaData HabaParser::parse(const std::string& raw_text) {
     }
 
     // Extract script layer
-    std::regex script_regex("<script_layer>(.*?)</script_layer>", std::regex::ECMAScript | std::regex::multiline);
+    std::regex script_regex("<script_layer>([\\s\\S]*?)</script_layer>", std::regex::ECMAScript);
     if (std::regex_search(raw_text, match, script_regex) && match.size() > 1) {
         data.script = trim(match[1].str());
     }
