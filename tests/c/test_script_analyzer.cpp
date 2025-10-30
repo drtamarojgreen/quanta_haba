@@ -4,11 +4,13 @@
 bool ScriptAnalyzerTest_FindSymbols_FunctionsAndVariables() {
     std::string script = "function myFunc() { const x = 1; } var anotherVar = 2;";
     auto symbols = findSymbols(script);
-    ASSERT_EQ(size_t(2), symbols.size());
+    ASSERT_EQ(size_t(3), symbols.size());
     ASSERT_EQ(std::string("myFunc"), symbols[0].name);
     ASSERT_EQ(std::string("function"), symbols[0].type);
-    ASSERT_EQ(std::string("anotherVar"), symbols[1].name);
+    ASSERT_EQ(std::string("x"), symbols[1].name);
     ASSERT_EQ(std::string("variable"), symbols[1].type);
+    ASSERT_EQ(std::string("anotherVar"), symbols[2].name);
+    ASSERT_EQ(std::string("variable"), symbols[2].type);
     return true;
 }
 
