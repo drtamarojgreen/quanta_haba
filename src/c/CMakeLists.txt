@@ -33,8 +33,14 @@ enable_testing()
 
 # Create a test executable
 add_executable(run_tests_cmake
+    ../../tests/c/main.cpp
     ../../tests/c/test_haba_parser.cpp
+    ../../tests/c/test_script_analyzer.cpp
+    ../../tests/c/test_config_manager.cpp
     source/HabaParser.cpp
+    source/ScriptAnalyzer.cpp
+    source/ConfigManager.cpp
+    source/OAuthClient.cpp
 )
 
 # Link include directories to the test executable

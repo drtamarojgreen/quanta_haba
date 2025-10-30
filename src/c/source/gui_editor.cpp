@@ -385,7 +385,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 void OpenConfigDialog(HWND hwnd) {
     // For now, this is a placeholder.
     // A real implementation would use DialogBox() and a resource template.
-    MessageBoxA(hwnd, "Feature in development: Configuration dialog is not yet implemented.", "Configure", MB_OK | MB_ICONINFORMATION);
+    MessageBoxA(hwnd, "Feature in development: Configuration dialog is not yet implemented.\nA future update will allow you to manage OAuth profiles here.", "Configure", MB_OK | MB_ICONINFORMATION);
 }
 
         case WM_NOTIFY: {
@@ -441,7 +441,7 @@ void OpenFindDialog(HWND hwnd) {
 
     // For now, let's just implement a basic find next.
     // A proper implementation is beyond the scope of this exercise.
-    MessageBoxA(hwnd, "Feature in development: Find dialog is not yet implemented.", "Find", MB_OK | MB_ICONINFORMATION);
+    MessageBoxA(hwnd, "Feature in development: Find dialog is not yet implemented.\nA future update will add find and replace functionality.", "Find", MB_OK | MB_ICONINFORMATION);
 }
 
         case WM_COMMAND: {
