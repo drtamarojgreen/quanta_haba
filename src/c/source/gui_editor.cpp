@@ -234,6 +234,7 @@ void RunModelDemo() {
     OAuthConfig config = g_configManager.getConfiguration(g_activeProfileName);
     if (g_oauthClient) {
         delete g_oauthClient;
+        g_oauthClient = nullptr; // Good practice to null the pointer after deletion
     }
     g_oauthClient = new OAuthClient(config);
 
