@@ -62,6 +62,14 @@ bool HabaParserTest_EmptyInput() {
     return true;
 }
 
+bool HabaParserTest_MalformedInput() {
+    HabaParser parser;
+    std::string raw_text = "<content_layer>Content but no closing tag";
+    HabaData data = parser.parse(raw_text);
+    ASSERT_EQ(std::string(""), data.content);
+    return true;
+}
+
 // Register tests
 struct TestRegistrar {
     TestRegistrar() {
@@ -69,11 +77,8 @@ struct TestRegistrar {
         add_test_case("HabaParserTest_MissingScriptLayer", HabaParserTest_MissingScriptLayer);
         add_test_case("HabaParserTest_MissingContentLayer", HabaParserTest_MissingContentLayer);
         add_test_case("HabaParserTest_EmptyInput", HabaParserTest_EmptyInput);
+        add_test_case("HabaParserTest_MalformedInput", HabaParserTest_MalformedInput);
     }
 };
 
 static TestRegistrar registrar_instance;
-
-int main(int argc, char **argv) {
-    return run_all_tests();
-}
