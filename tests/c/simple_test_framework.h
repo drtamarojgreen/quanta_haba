@@ -35,10 +35,17 @@ struct TestCase {
     TestFunction func;
 };
 
-// Global vector to store test cases
+// Declare the global test cases vector and functions for all files that include this header.
+extern std::vector<TestCase>* g_test_cases;
+void add_test_case(const std::string& name, TestFunction func);
+int run_all_tests();
+
+// Use the RUN_ALL_TESTS_MAIN macro (defined in main.cpp) to ensure the following
+// code is only compiled ONCE. This is where the functions and globals are defined.
+#ifdef RUN_ALL_TESTS_MAIN
+
 std::vector<TestCase>* g_test_cases = nullptr;
 
-// Function to add a test case
 void add_test_case(const std::string& name, TestFunction func) {
     if (!g_test_cases) {
         g_test_cases = new std::vector<TestCase>();
@@ -46,7 +53,6 @@ void add_test_case(const std::string& name, TestFunction func) {
     g_test_cases->push_back({name, func});
 }
 
-// Function to run all tests
 int run_all_tests() {
     if (!g_test_cases) {
         std::cout << "No tests found." << std::endl;
@@ -78,5 +84,7 @@ int run_all_tests() {
 
     return failed_tests;
 }
+
+#endif // RUN_ALL_TESTS_MAIN
 
 #endif // SIMPLE_TEST_FRAMEWORK_H
