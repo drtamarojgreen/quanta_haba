@@ -1,0 +1,5 @@
+Situation: Default
+# ScriptAnalyzer observations
+Is symbol_extraction_regex_based = true
+Is todo_detection_operational = true
+Is multi_line_script_support_operational = true

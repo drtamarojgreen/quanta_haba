@@ -1,0 +1,5 @@
+Situation: Default
+# Python HabaParser observations
+Is python_haba_parser_available = true
+Is multi_line_content_supported = true
+Is xml_like_tag_parsing_operational = true

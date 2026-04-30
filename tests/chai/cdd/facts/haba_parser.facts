@@ -1,0 +1,5 @@
+Situation: Default
+# HabaParser observations
+Is multi_line_content_supported = true
+Is tag_nesting_validation_operational = false
+Is haba_parser_regex_driven = true
