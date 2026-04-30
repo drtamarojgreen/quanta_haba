@@ -1,0 +1,5 @@
+Situation: Default
+# Sandbox environmental facts
+Is cxx_compiler_available = true
+Is filesystem_access_operational = true
+Is memory_safe_execution_required = true

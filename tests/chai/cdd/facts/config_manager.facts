@@ -1,0 +1,5 @@
+Situation: Default
+# ConfigManager observations
+Is config_file_path_resolution_operational = true
+Is profile_crud_operational = true
+Is json_serialization_library_free = true

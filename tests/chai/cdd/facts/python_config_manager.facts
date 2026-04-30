@@ -1,0 +1,5 @@
+Situation: Default
+# Python ConfigManager observations
+Is python_config_manager_available = true
+Is profile_storage_operational = true
+Is json_config_format_operational = true
