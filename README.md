@@ -2,34 +2,52 @@
 
 QuantaHaba 🌱
 
-QuantaHaba is a Velo-integrated, LLM-powered design editor that transforms the way creators build interactive web experiences. It’s not just another website editor — it’s a safe, structured habitat for ideas to grow.
-
-Think: Figma meets Wix Velo meets ChatGPT, but with the Quanta ecosystem’s brain-inspired touch.
+QuantaHaba is a Velo-integrated, LLM-powered design editor that blends structured authoring with practical developer tooling. This repository currently ships a Python editor stack, C++ parser/converter utilities, and test suites across C++, Python, and CDD-style flows.
 
 ## Demo Video
 
 [![Watch the video](https://img.youtube.com/vi/3Mglddunz5s/0.jpg)](https://www.youtube.com/watch?v=3Mglddunz5s)
 
-✨ Features
+## Current Available Features
 
-LLM-Driven Design Suggestions
-Natural language → styled components. Describe what you want, and QuantaHaba scaffolds it in code + layout.
+### Core Editing & Parsing
+- Haba document parsing for structured content, styles, and script blocks.
+- Python Tkinter editor with preview-oriented workflow.
+- Symbol outline and TODO explorer side panels.
+- HTML export pipeline for parsed Haba content.
 
-Velo Integration
-Extend Wix sites with Velo custom logic, plugins, and APIs directly inside the editor.
+### Script Execution & Task Extraction
+- JavaScript execution from `.haba` scripts through a headless browser runner.
+- Console log capture and extraction of actionable TODO/FIXME items.
+- JavaScript error capture with stack traces surfaced as tasks.
+- Python script execution helper with timeout and stderr-based failure reporting.
 
-Structured Creativity (the Haba concept)
-QuantaHaba is built around “design habitats” — safe spaces for experimenting with CSS, HTML, and Velo code blocks without breaking production.
+### AI / Model Workflow
+- Local model integration path for Quanta Tissu (when package + weights are available).
+- External model client fallback path when authenticated.
+- Stubbed-response fallback mode when no model backend is available.
+- Prompt/task loop that converts `TODO:` items to `DONE:` while logging work products.
 
-Interactive Component Library
-Pre-built micro-apps (quizzes, journals, community tools) that can be slotted in instantly.
+### Configuration & OAuth Support
+- OAuth client integration hooks in the editor stack.
+- Local profile/config persistence in `~/.quanta_haba/oauth_configs.json`.
+- Save/load/delete configuration profiles through a dedicated config manager.
 
-AI Pair Designer
-Guided design flow that suggests accessibility fixes, performance optimizations, and modern UI patterns.
+### Developer Tooling
+- C++ `haba-converter` command-line workflow for `.haba` → `.html` conversion.
+- C++ parser/config/script-analyzer test binaries under `tests/c/`.
+- Python unit-style tests for parser, editor, script runner, CLI runner, linter, and components.
+- CDD card/fact test harness under `tests/chai/cdd/`.
+
+## GitHub Workflow Features
+
+QuantaHaba is organized for GitHub-native collaboration and delivery:
+- Pull-request based development with reviewable docs/code changes.
+- Multi-language test structure (`tests/p`, `tests/c`, and `tests/chai/cdd`) suitable for CI matrix jobs.
+- Documentation-first architecture decisions in `docs/` for issue/PR traceability.
+- Modular source layout (`src/p`, `src/c`) that supports incremental feature branches and milestone planning.
 
 ## Developer Tools
-
-In addition to the main QuantaHaba web editor, the project includes a suite of tools for C++ and Python developers.
 
 ### Haba C++ CLI Tool
 
@@ -40,109 +58,63 @@ The `haba-converter` is a command-line utility for converting `.haba` files into
 ./haba-converter /path/to/your/file.haba
 ```
 
-### C++/Python Editor Enhancements
-
-The project also defines a collection of C++ and Python editor enhancements, designed to be implemented without third-party libraries.
-
-**Key C/C++ Features:**
-- Header/Source file switching
-- Include autocompletion
-- Basic code formatting and build error parsing
-- GDB debugger integration
-
-**Key Python Features:**
-- Virtual environment detection
-- Import autocompletion and sorting
-- PEP 8 style linting
-- Jupyter-like cell execution with PDB debugger integration
-
 ### Building and Testing the C++ Editor
-
-**Building the Editor**
-
-The C++ editor is located in the `src/c/` directory and can be built using CMake:
 
 ```bash
 cd src/c
-mkdir build
+mkdir -p build
 cd build
 cmake ..
 cmake --build .
-make
-```
-
-This will generate an executable in the `build` directory.
-
-**Testing the Editor**
-
-To run the tests for the C++ editor, run the following command from the `build` directory:
-
-```bash
 ctest
 ```
 
-**Running Tests Manually with g++**
-
-Alternatively, you can compile and run the tests from the project root using `g++`:
-
-```bash
-g++ -std=c++17 -Isrc/c/include tests/c/test_haba_parser.cpp src/c/source/HabaParser.cpp -o run_tests
-./run_tests
-```
-
 ### Running the Python Editor
-
-The Python editor is located in the `src/p/` directory and can be run as follows:
 
 ```bash
 python3 src/p/editor.py
 ```
 
-🚀 Roadmap
+### Running Python Tests
 
-Alpha (MVP)
+```bash
+python3 -m unittest discover -s tests/p
+```
 
-Basic Velo-compatible HTML/CSS editor
+## Philosophy
 
-Inline AI code suggestion
+QuantaHaba is built on a simple belief: creativity grows fastest when people feel safe to explore.
 
-Quanta-styled component starter pack
+A greenhouse does not force growth—it creates the conditions for growth. QuantaHaba follows the same model for builders:
+- **Safe experimentation**: You can iterate rapidly without losing structure.
+- **Clear thinking over chaos**: Ideas move from rough sparks to intentional systems.
+- **Human + AI partnership**: AI accelerates drafts; humans keep purpose, taste, and judgment.
+- **Practical shipping mindset**: Inspiration is only complete when it becomes something real and usable.
 
-Beta
+We do not want tooling that is merely impressive—we want tooling that helps people make meaningful things, repeatedly, with confidence.
 
-LLM-driven layout generator
+If design tools are usually a canvas, QuantaHaba aims to be a habitat: alive, adaptive, and focused on helping your best ideas take root.
 
-Interactive plugin integration (quiz, journaling, events)
+## Future Enhancements
 
-Sandbox “Haba” spaces for safe experimentation
+### Product Vision
+- LLM-driven layout generation from natural-language prompts.
+- Rich interactive plugin integrations (quiz, journaling, events, and community widgets).
+- Collaborative editing with shared workspaces.
+- Import/export bridges across Wix, Figma, and GitHub.
 
-v1.0 Release
+### UX and Design System Ideas
+- “Bloom Mode” to generate theme palettes and typography from a single concept word.
+- Guided “Haba Quests” for progressive learning and onboarding.
+- Expanded component/template gallery with one-click insertion.
 
-Collaborative editing
+### Platform and Ecosystem
+- Plugin marketplace for sharing and remixing QuantaHaba creations.
+- Stronger CI automation and release packaging workflows.
+- Deeper test hardening around parser contracts and CDD failure modes.
 
-Full AI design assistant
+## Quick Start
 
-Export/import between Wix, Figma, and GitHub
-
-🧠 Philosophy
-
-QuantaHaba is inspired by a growth environment — just like a greenhouse helps plants bloom, a design habitat nurtures creativity without chaos.
-It brings structure to exploration, combining:
-
-Cognitive systems thinking (from Quanta_Tissu)
-
-Practical front-end development (Velo + web tech)
-
-AI-assisted design flows (ChatGPT, Gemini, Copilot synergy)
-
-🔮 Future Ideas
-
-“Bloom Mode” → generate a full theme + typography palette from a single word.
-
-“Haba Quests” → guided learning flows for new designers.
-
-Plugin Marketplace → share and remix QuantaHaba creations.
-
-⚡ Quick Start
-
-Coming soon... once Gemini finishes bootstrapping the codebase.
+1. Build C++ components if needed (`src/c`).
+2. Launch the Python editor (`python3 src/p/editor.py`).
+3. Use test suites under `tests/` to validate parser, runner, and editor behavior.
