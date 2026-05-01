@@ -166,3 +166,45 @@ This test describes how the system should behave when the user makes a mistake.
 
 ## 4. Finalizing the Strategy
 This comprehensive BDD approach ensures that our tests are not just checks on the code, but are clear, maintainable, and serve as the ultimate documentation for the QuantaHaba project's behavior.
+## 5. CDD Test Edge Cases and Failure Modes
+
+This project includes CDD-style cards/facts under `tests/chai/cdd/`. To make these tests more robust and diagnostic, we should explicitly cover the following edge cases and failure classes.
+
+### 5.1 Input and Fact Integrity Edge Cases
+
+- Missing fact files in `CHAI_FACTS_DIR` (directory exists but specific `.facts` file absent).
+- Corrupted fact entries (invalid delimiters, malformed key/value pairs, truncated lines).
+- Empty fact files that still load successfully but produce false confidence.
+- Duplicate fact keys where last-write-wins behavior may hide unintended overrides.
+- UTF-8 and newline variance (`\n` vs `\r\n`) that can affect parser assumptions.
+
+### 5.2 Parser and Contract Edge Cases
+
+- Unterminated or nested `.haba` sections (e.g., malformed `[[SCRIPT]]` boundaries).
+- Unexpected ordering of sections (script before content/style) and whether order is guaranteed.
+- Excess whitespace/indentation around tokens and headers.
+- Very large script/content blocks that stress memory assumptions.
+- Presence of embedded markers inside string literals that should not terminate sections.
+
+### 5.3 Runtime/Environment Failure Modes
+
+- Build mismatch between test cards and implementation headers/sources.
+- Relative include path breakage from Makefile execution in different working directories.
+- Silent pass risk when a card binary exits 0 without asserting expected facts.
+- Environment variable misconfiguration (`CHAI_FACTS_DIR` points to wrong location).
+- Platform/compiler differences (GCC/Clang, libstdc++ variations) altering behavior.
+
+### 5.4 Observability and Diagnosis Improvements
+
+- Ensure each failed assertion prints: fact file, fact key, expected value, actual value.
+- Include deterministic card execution ordering in test output.
+- Emit summary counts: cards run, assertions run, pass/fail totals.
+- Distinguish setup failure (fact load/build) from behavior failure (assert mismatch).
+
+### 5.5 Recommended Additions to CDD Suite
+
+1. Add dedicated “invalid facts” fixtures and assert clean failure messages.
+2. Add cross-language parity facts to validate C++ and Python parser outputs match for canonical samples.
+3. Add stress fixtures for long content/script sections.
+4. Add CI job that runs `tests/chai/cdd/Makefile` with at least two fact directories: normal + intentionally broken.
+5. Add regression facts for previously fixed parser bugs to prevent reintroduction.
