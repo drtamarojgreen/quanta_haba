@@ -9,7 +9,7 @@ This document tracks realistic, implementation-ready enhancements based on the c
 - Script execution utilities for JavaScript and Python (`src/p/script_runner.py`).
 - CLI runner for executing `.haba` script content (`src/p/cli_runner.py`).
 - OAuth/config plumbing (`src/p/oauth_client.py`, `src/p/config_manager.py`).
-- C++ parser and converter/test assets (`src/c/`, `tests/c/`, `tests/chai/cdd/`).
+- C++ parser and converter/test assets (`src/c/`, `tests/c/`, `tests/sorrel/sdd/`).
 
 ## 2) Priority Enhancements (Next 30–60 days)
 
@@ -28,7 +28,7 @@ This document tracks realistic, implementation-ready enhancements based on the c
 10. Add cross-platform path handling tests (spaces, unicode, relative traversal).
 
 ### P2 — Developer Experience
-11. Create `make test-py`, `make test-cpp`, and `make test-cdd` wrappers at repo root.
+11. Create `make test-py`, `make test-cpp`, and `make test-sdd` wrappers at repo root.
 12. Add a single `docs/testing.md` quick-start matrix by environment (Linux/macOS/CI/headless).
 13. Standardize structured logging format for editor + runner subsystems.
 14. Add fixtures directory for canonical `.haba` samples and expected HTML outputs.
@@ -62,4 +62,4 @@ Each enhancement should include:
 1. Tests for success and failure paths.
 2. Documentation updates (README + relevant docs).
 3. Clear error messaging (user-facing and developer-facing).
-4. No regressions in existing `tests/p`, `tests/c`, and `tests/chai/cdd` flows.
+4. No regressions in existing `tests/p`, `tests/c`, and `tests/sorrel/sdd` flows.

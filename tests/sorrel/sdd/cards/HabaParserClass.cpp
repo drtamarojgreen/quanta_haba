@@ -3,7 +3,7 @@
 #include "HabaParser.h"
 #include "../cpp/util/fact_utils.h"
 
-using namespace Chai::Cdd::Util;
+using namespace Sorrel::Sdd::Util;
 
 /**
  * @Card: haba_parser_multiline_verification
@@ -42,10 +42,10 @@ void haba_parser_empty_input_card() {
 int main() {
     auto facts = FactReader::readFacts("haba_parser.facts");
 
-    std::cout << "[CDD Card: haba_parser_multiline_verification]" << std::endl;
+    std::cout << "[SDD Card: haba_parser_multiline_verification]" << std::endl;
     haba_parser_multiline_card(facts);
 
-    std::cout << "[CDD Card: haba_parser_empty_input_verification]" << std::endl;
+    std::cout << "[SDD Card: haba_parser_empty_input_verification]" << std::endl;
     haba_parser_empty_input_card();
 
     return 0;

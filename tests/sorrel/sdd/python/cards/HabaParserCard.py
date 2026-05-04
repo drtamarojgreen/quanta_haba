@@ -19,5 +19,5 @@ def haba_parser_multiline_card(facts):
 
 if __name__ == "__main__":
     facts = read_facts("python_haba_parser.facts")
-    print("[CDD Card: python_haba_parser_multiline_verification]")
+    print("[SDD Card: python_haba_parser_multiline_verification]")
     haba_parser_multiline_card(facts)

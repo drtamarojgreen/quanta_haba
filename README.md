@@ -2,7 +2,7 @@
 
 QuantaHaba 🌱
 
-QuantaHaba is a Velo-integrated, LLM-powered design editor that blends structured authoring with practical developer tooling. This repository currently ships a Python editor stack, C++ parser/converter utilities, and test suites across C++, Python, and CDD-style flows.
+QuantaHaba is a Velo-integrated, LLM-powered design editor that blends structured authoring with practical developer tooling. This repository currently ships a Python editor stack, C++ parser/converter utilities, and test suites across C++, Python, and SDD-style (Sorrel: Standardizing of Resilient and Reliable Equipment Learning) flows.
 
 ## Demo Video
 
@@ -37,13 +37,13 @@ QuantaHaba is a Velo-integrated, LLM-powered design editor that blends structure
 - C++ `haba-converter` command-line workflow for `.haba` → `.html` conversion.
 - C++ parser/config/script-analyzer test binaries under `tests/c/`.
 - Python unit-style tests for parser, editor, script runner, CLI runner, linter, and components.
-- CDD card/fact test harness under `tests/chai/cdd/`.
+- SDD card/fact test harness under `tests/sorrel/sdd/`.
 
 ## GitHub Workflow Features
 
 QuantaHaba is organized for GitHub-native collaboration and delivery:
 - Pull-request based development with reviewable docs/code changes.
-- Multi-language test structure (`tests/p`, `tests/c`, and `tests/chai/cdd`) suitable for CI matrix jobs.
+- Multi-language test structure (`tests/p`, `tests/c`, and `tests/sorrel/sdd`) suitable for CI matrix jobs.
 - Documentation-first architecture decisions in `docs/` for issue/PR traceability.
 - Modular source layout (`src/p`, `src/c`) that supports incremental feature branches and milestone planning.
 
@@ -111,7 +111,7 @@ If design tools are usually a canvas, QuantaHaba aims to be a habitat: alive, ad
 ### Platform and Ecosystem
 - Plugin marketplace for sharing and remixing QuantaHaba creations.
 - Stronger CI automation and release packaging workflows.
-- Deeper test hardening around parser contracts and CDD failure modes.
+- Deeper test hardening around parser contracts and SDD failure modes.
 
 ## Quick Start
 
