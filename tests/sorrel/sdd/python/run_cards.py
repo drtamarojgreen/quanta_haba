@@ -6,9 +6,9 @@ def run_cards():
     cards_dir = os.path.join(os.path.dirname(__file__), "cards")
     facts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "facts"))
 
-    os.environ["CHAI_FACTS_DIR"] = facts_dir
+    os.environ["SORREL_FACTS_DIR"] = facts_dir
 
-    print(f"Running Python CDD Cards with CHAI_FACTS_DIR={facts_dir}...")
+    print(f"Running Python SDD Cards with SORREL_FACTS_DIR={facts_dir}...")
 
     for filename in os.listdir(cards_dir):
         if filename.endswith("Card.py"):

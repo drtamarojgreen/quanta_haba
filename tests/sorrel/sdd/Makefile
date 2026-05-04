@@ -5,7 +5,7 @@ LDFLAGS =
 # Source files for HabaParser
 HABA_SRCS = ../../../src/c/source/HabaParser.cpp
 
-# CDD Cards
+# SDD Cards
 CARDS = cards/HabaParserClass.cpp
 
 BIN_DIR = bin
@@ -24,10 +24,10 @@ clean:
 	rm -rf $(BIN_DIR)
 
 test: all
-	@echo "Running Haba CDD Tests with CHAI_FACTS_DIR=$(FACTS_DIR)..."
+	@echo "Running Haba SDD Tests with SORREL_FACTS_DIR=$(FACTS_DIR)..."
 	@for bin in $(BINS); do \
 		echo "Executing $$bin..."; \
-		CHAI_FACTS_DIR=$(FACTS_DIR) ./$$bin; \
+		SORREL_FACTS_DIR=$(FACTS_DIR) ./$$bin; \
 	done
 
 .PHONY: all clean test

@@ -11,7 +11,7 @@ def config_manager_storage_card(facts):
     @Results python_config_manager_storage_operational == true
     """
     cm = ConfigManager()
-    profile_name = "CDD_Python_Test"
+    profile_name = "SDD_Python_Test"
     config_data = {"provider": "TestProvider", "client_id": "test_id"}
 
     cm.save_configuration(profile_name, config_data)
@@ -29,5 +29,5 @@ def config_manager_storage_card(facts):
 
 if __name__ == "__main__":
     facts = read_facts("python_config_manager.facts")
-    print("[CDD Card: python_config_manager_storage_verification]")
+    print("[SDD Card: python_config_manager_storage_verification]")
     config_manager_storage_card(facts)

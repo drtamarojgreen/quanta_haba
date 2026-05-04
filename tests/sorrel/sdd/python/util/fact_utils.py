@@ -5,7 +5,7 @@ def read_facts(filename):
     target_path = ""
 
     # 1. Check environment variable
-    env_dir = os.environ.get("CHAI_FACTS_DIR")
+    env_dir = os.environ.get("SORREL_FACTS_DIR")
     if env_dir:
         p = os.path.join(env_dir, filename)
         if os.path.exists(p):
@@ -17,7 +17,7 @@ def read_facts(filename):
             "facts",
             "../facts",
             "../../facts",
-            "tests/chai/cdd/facts"
+            "tests/sorrel/sdd/facts"
         ]
         for dir in search_dirs:
             p = os.path.join(dir, filename)
