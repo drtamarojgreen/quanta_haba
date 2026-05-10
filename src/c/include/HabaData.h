@@ -14,6 +14,7 @@ public:
     std::string content;
     std::vector<std::pair<std::string, std::string>> presentation_items;
     std::string script;
+    std::string to_do;
 };
 
 #endif // HABA_DATA_H

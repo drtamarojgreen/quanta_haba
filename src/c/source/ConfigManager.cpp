@@ -62,23 +62,8 @@ ConfigManager::ConfigManager() {
 }
 
 std::string ConfigManager::getConfigFilePath() {
-    std::string path;
-#ifdef _WIN32
-    char szPath[MAX_PATH];
-    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, szPath))) {
-        path = std::string(szPath) + "\\QuantaHaba";
-        CreateDirectoryA(path.c_str(), NULL);
-        path += "\\oauth_profiles.json";
-    }
-#else
-    const char* homeDir = getenv("HOME");
-    if (homeDir) {
-        path = std::string(homeDir) + "/.config/QuantaHaba";
-        mkdir(path.c_str(), 0700);
-        path += "/oauth_profiles.json";
-    }
-#endif
-    return path;
+    // Porting to local haba/ directory as requested
+    return "haba/oauth_profiles.json";
 }
 
 bool ConfigManager::loadConfigurations() {

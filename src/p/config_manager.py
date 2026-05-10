@@ -13,7 +13,7 @@ class ConfigManager:
         Args:
             config_filename (str): The name of the configuration file.
         """
-        self.config_dir = os.path.join(os.path.expanduser("~"), ".quanta_haba")
+        self.config_dir = "haba"
         self.config_filepath = os.path.join(self.config_dir, config_filename)
         self._ensure_config_dir_exists()
         self.configs = self.load_configs()
@@ -24,7 +24,7 @@ class ConfigManager:
             try:
                 os.makedirs(self.config_dir)
             except OSError as e:
-                messagebox.showerror("Configuration Error", f"Could not create config directory: {e}")
+                print(f"Configuration Error: Could not create config directory: {e}")
 
     def load_configs(self):
         """
