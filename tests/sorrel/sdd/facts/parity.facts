@@ -1,0 +1,30 @@
+Situation: Deep Parity
+# High-Level Feature Parity Requirements
+Is json_serialization_parity_required = true
+Is round_trip_build_parity_required = true
+Is editor_logic_parity_required = true
+Is cli_feature_parity_required = true
+Is gui_feature_parity_required = true
+Is symbol_extraction_parity_required = true
+
+# Deep CLI Parity Requirements
+Is cli_flag_integration_parity_required = true
+Is cli_flag_ci_present = true
+Is cli_flag_export_html_present = true
+Is cli_flag_to_json_present = true
+
+# Deep GUI Parity Requirements
+Is gui_interface_structure_parity_required = true
+Is gui_tab_preview_present = true
+Is gui_tab_symbols_present = true
+Is gui_tab_todos_present = true
+Is gui_tab_tasks_present = true
+Is gui_button_model_demo_present = true
+Is gui_button_macro_record_present = true
+
+# Interface Contract Parity Requirements
+Is interface_contract_parity_required = true
+Is contract_parser_parse_operational = true
+Is contract_parser_build_operational = true
+Is contract_parser_to_json_operational = true
+Is contract_parser_from_json_operational = true

@@ -1,0 +1,6 @@
+Situation: Editor Logic Parity
+# Editor Logic Consistency Requirements
+Is editor_logic_parity_required = true
+Is toggle_comment_operational = true
+Is include_guard_generation_operational = true
+Is python_main_guard_check_operational = true
