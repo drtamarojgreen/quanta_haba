@@ -1,0 +1,9 @@
+Situation: GUI Parity
+# GUI Consistency Requirements
+Is gui_tab_preview_present = true
+Is gui_tab_symbols_present = true
+Is gui_tab_todos_present = true
+Is gui_tab_tasks_present = true
+Is gui_button_model_demo_present = true
+Is gui_button_macro_record_present = true
+Is gui_interface_structure_parity_required = true

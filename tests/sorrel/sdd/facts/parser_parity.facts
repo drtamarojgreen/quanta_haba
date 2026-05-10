@@ -1,0 +1,8 @@
+Situation: Parser Parity
+# HabaParser Consistency Requirements
+Is json_serialization_parity_required = true
+Is round_trip_build_parity_required = true
+Is contract_parser_parse_operational = true
+Is contract_parser_build_operational = true
+Is contract_parser_to_json_operational = true
+Is contract_parser_from_json_operational = true

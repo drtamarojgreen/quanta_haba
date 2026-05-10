@@ -1,0 +1,6 @@
+Situation: CLI Parity
+# CLI Consistency Requirements
+Is cli_flag_ci_present = true
+Is cli_flag_export_html_present = true
+Is cli_flag_to_json_present = true
+Is cli_flag_integration_parity_required = true
