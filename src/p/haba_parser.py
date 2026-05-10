@@ -1,4 +1,5 @@
 import re
+import json
 
 class HabaData:
     """A simple data class to hold the parsed Haba file content."""
@@ -6,6 +7,7 @@ class HabaData:
         self.content = ""
         self.presentation_items = [] # A list of tuples (container_text, style_text)
         self.script = ""
+        self.to_do = ""
 
 class HabaParser:
     """
@@ -56,6 +58,11 @@ class HabaParser:
         if script_match:
             data.script = script_match.group(1).strip()
 
+        # Extract to_do layer
+        todo_match = re.search(r'<to_do>(.*?)</to_do>', raw_text, re.DOTALL)
+        if todo_match:
+            data.to_do = todo_match.group(1).strip()
+
         return data
 
     def build(self, haba_data: HabaData) -> str:
@@ -83,7 +90,38 @@ class HabaParser:
         # Build script layer
         script_str = f"<script_layer>\n    {haba_data.script}\n</script_layer>\n"
 
-        return content_str + presentation_str + script_str
+        # Build to_do layer
+        todo_str = f"<to_do>\n    {haba_data.to_do}\n</to_do>\n" if haba_data.to_do else ""
+
+        return content_str + presentation_str + script_str + todo_str
+
+    def to_json(self, haba_data: HabaData) -> str:
+        """Converts HabaData to JSON."""
+        data_dict = {
+            "content_layer": haba_data.content,
+            "presentation_layer": {
+                "containers": [item[0] for item in haba_data.presentation_items],
+                "styles": [item[1] for item in haba_data.presentation_items]
+            },
+            "script_layer": haba_data.script,
+            "to_do": haba_data.to_do
+        }
+        return json.dumps(data_dict, indent=4)
+
+    def from_json(self, json_str: str) -> HabaData:
+        """Parses JSON into HabaData."""
+        data = HabaData()
+        raw = json.loads(json_str)
+        data.content = raw.get("content_layer", "")
+        pres = raw.get("presentation_layer", {})
+        containers = pres.get("containers", [])
+        styles = pres.get("styles", [])
+        for i in range(len(containers)):
+            style = styles[i] if i < len(styles) else ""
+            data.presentation_items.append((containers[i], style))
+        data.script = raw.get("script_layer", "")
+        data.to_do = raw.get("to_do", "")
+        return data
 
 
 # Example Usage (for testing purposes)

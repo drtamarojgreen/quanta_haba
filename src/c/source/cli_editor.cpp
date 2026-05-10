@@ -6,19 +6,30 @@
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <chrono>
+#include "WorkspaceManager.h"
+#include "HabaParser.h"
+#include "html_generator.h"
+#include "EditorLogic.h"
 
-// Represents the state of the editor
-struct EditorState {
-    std::string file_path;
-    std::vector<std::string> lines;
-    int cursor_line = 0;
+class PerformanceTimer {
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
+    std::string name;
+public:
+    PerformanceTimer(std::string n) : name(n), start(std::chrono::high_resolution_clock::now()) {}
+    ~PerformanceTimer() {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> diff = end - start;
+        WorkspaceManager::logActivity("Performance [" + name + "]: " + std::to_string(diff.count()) + "s");
+    }
 };
 
 void print_usage() {
-    std::cout << "Usage: cli_editor <file_path>" << std::endl;
+    std::cout << "Usage: cli_editor <file_path> [--ci] [--export-html]" << std::endl;
 }
 
 void display_file(const EditorState& state) {
+    if (state.ci_mode) return;
     const std::string red_bg = "\033[41m";
     const std::string reset_color = "\033[0m";
 
@@ -60,40 +71,6 @@ void save_file(const EditorState& state) {
     std::cout << "File saved." << std::endl;
 }
 
-void toggle_comment(EditorState& state) {
-    if (state.cursor_line < 0 || state.cursor_line >= state.lines.size()) {
-        return;
-    }
-    std::string& line = state.lines[state.cursor_line];
-    if (line.rfind("//", 0) == 0) {
-        line = line.substr(2);
-    } else {
-        line = "//" + line;
-    }
-}
-
-std::string generate_guard_symbol(const std::string& file_path) {
-    std::string basename = file_path.substr(file_path.find_last_of("/\\") + 1);
-    std::transform(basename.begin(), basename.end(), basename.begin(), ::toupper);
-    std::replace_if(basename.begin(), basename.end(), [](char c) { return !std::isalnum(c); }, '_');
-    return basename + "_H";
-}
-
-void add_include_guard(EditorState& state) {
-    std::string file_path = state.file_path;
-    if (file_path.size() < 3 || (file_path.substr(file_path.size() - 2) != ".h" && file_path.substr(file_path.size() - 4) != ".hpp")) {
-        std::cout << "Not a header file (.h or .hpp)." << std::endl;
-        return;
-    }
-
-    std::string guard_symbol = generate_guard_symbol(file_path);
-
-    state.lines.insert(state.lines.begin(), "#ifndef " + guard_symbol);
-    state.lines.insert(state.lines.begin() + 1, "#define " + guard_symbol);
-    state.lines.push_back("#endif // " + guard_symbol);
-
-    state.cursor_line += 2;
-}
 
 /**
  * @brief Simulates a call to the Quanta model.
@@ -176,6 +153,10 @@ void process_command(const std::string& command, EditorState& state, bool& runni
 }
 
 void editor_loop(EditorState& state) {
+    if (state.ci_mode) {
+        WorkspaceManager::logActivity("CI Mode: Skipping interactive loop.");
+        return;
+    }
     bool running = true;
     std::string command;
 
@@ -184,6 +165,7 @@ void editor_loop(EditorState& state) {
         std::cout << "> ";
         std::getline(std::cin, command);
         process_command(command, state, running);
+        WorkspaceManager::saveSession(state.file_path, state.cursor_line);
     }
 }
 
@@ -201,15 +183,35 @@ void load_file(EditorState& state) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         print_usage();
         return 1;
     }
 
+    PerformanceTimer totalTimer("Total Execution");
     EditorState state;
     state.file_path = argv[1];
+    bool export_html = false;
+
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--ci") state.ci_mode = true;
+        if (arg == "--export-html") export_html = true;
+    }
 
     load_file(state);
+
+    if (export_html) {
+        PerformanceTimer exportTimer("HTML Export");
+        HabaParser parser;
+        std::string full_content;
+        for (const auto& l : state.lines) full_content += l + "\n";
+        HabaData data = parser.parse(full_content);
+        std::string html = generateHtml(data);
+        std::ofstream outFile(state.file_path + ".html");
+        outFile << html;
+        std::cout << "Exported to " << state.file_path << ".html" << std::endl;
+    }
 
     editor_loop(state);
 

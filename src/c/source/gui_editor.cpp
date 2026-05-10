@@ -7,6 +7,7 @@
 #include "ConfigManager.h"
 #include "OAuthClient.h"
 #include "ScriptAnalyzer.h"
+#include "html_generator.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -39,63 +40,6 @@ std::string g_currentFile;
 std::string g_activeProfileName;
 bool g_isRecording = false;
 std::vector<WPARAM> g_macro;
-
-
-// Function to generate HTML from HabaData (same as main.cpp)
-std::string generateHtml(const HabaData& data) {
-    std::stringstream html;
-
-    html << "<!DOCTYPE html>\n";
-    html << "<html lang=\"en\">\n";
-    html << "<head>\n";
-    html << "    <meta charset=\"UTF-8\">\n";
-    html << "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
-    html << "    <title>Haba Output</title>\n";
-    html << "    <style>\n";
-    
-    for (size_t i = 0; i < data.presentation_items.size(); ++i) {
-        html << "        .haba-container-" << i << " " << data.presentation_items[i].second << "\n";
-    }
-    
-    html << "        body { font-family: Arial, sans-serif; margin: 20px; }\n";
-    html << "        .haba-content { max-width: 800px; margin: 0 auto; }\n";
-    html << "    </style>\n";
-    html << "</head>\n";
-    html << "<body>\n";
-    html << "    <div class=\"haba-content\">\n";
-
-    // Add content wrapped in containers
-    std::string content_with_containers = data.content;
-    for (int i = data.presentation_items.size() - 1; i >= 0; --i) {
-        std::stringstream temp_stream;
-        std::string container_tag = data.presentation_items[i].first;
-        size_t first_space = container_tag.find('>');
-        if (first_space != std::string::npos) {
-            container_tag.insert(first_space, " class=\"haba-container-" + std::to_string(i) + "\"");
-        }
-
-        temp_stream << container_tag << "\n" << content_with_containers << "\n";
-
-        size_t tag_name_start = container_tag.find('<') + 1;
-        size_t tag_name_end = container_tag.find_first_of(" >");
-        std::string tag_name = container_tag.substr(tag_name_start, tag_name_end - tag_name_start);
-        temp_stream << "</" << tag_name << ">";
-
-        content_with_containers = temp_stream.str();
-    }
-    
-    html << "        " << content_with_containers << "\n";
-    html << "    </div>\n";
-
-    if (!data.script.empty()) {
-        html << "    <script>\n" << data.script << "\n    </script>\n";
-    }
-
-    html << "</body>\n";
-    html << "</html>\n";
-
-    return html.str();
-}
 
 void LoadFile() {
     OPENFILENAME ofn;

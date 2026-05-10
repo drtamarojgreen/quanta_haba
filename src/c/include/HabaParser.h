@@ -23,6 +23,20 @@ public:
      * @return A string representing the content of a .haba file.
      */
     std::string build(const HabaData& haba_data);
+
+    /**
+     * @brief Converts HabaData to a JSON string.
+     * @param data The HabaData object.
+     * @return A JSON string.
+     */
+    std::string toJson(const HabaData& data);
+
+    /**
+     * @brief Parses a JSON string into HabaData.
+     * @param json_str The JSON string.
+     * @return HabaData object.
+     */
+    HabaData fromJson(const std::string& json_str);
 };
 
 #endif // HABA_PARSER_H
