@@ -173,6 +173,7 @@ std::vector<std::string> ConfigManager::getProfileNames() {
 }
 
 bool ConfigManager::saveConfiguration(const std::string& profileName, const OAuthConfig& config) {
+    StringUtils::ensureDirectoryExists("haba");
     configurations[profileName] = config;
     return saveConfigurations();
 }

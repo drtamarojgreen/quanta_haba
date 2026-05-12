@@ -20,6 +20,9 @@ add_executable(gui_editor
     source/HabaParser.cpp
     source/html_generator.cpp
     source/StringUtils.cpp
+    source/OAuthClient.cpp
+    source/ScriptAnalyzer.cpp
+    source/ConfigManager.cpp
 )
 
 add_executable(haba-converter
@@ -35,6 +38,10 @@ target_include_directories(cli_editor PRIVATE
 )
 
 target_include_directories(haba-converter PRIVATE
+    include
+)
+
+target_include_directories(gui_editor PRIVATE
     include
 )
 
@@ -69,6 +76,7 @@ target_include_directories(run_tests_cmake PRIVATE
 
 # Add a test to be run by CTest
 add_test(NAME HabaParserTest COMMAND run_tests_cmake)
+
 
 # A message to the user on how to build
 message(STATUS "--------------------------------------------------")
