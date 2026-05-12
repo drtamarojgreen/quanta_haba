@@ -15,10 +15,10 @@ void toggle_comment(EditorState& state) {
 }
 
 std::string generate_guard_symbol(const std::string& file_path) {
-    std::string basename = file_path.substr(file_path.find_last_of("/\\") + 1);
-    std::transform(basename.begin(), basename.end(), basename.begin(), ::toupper);
-    std::replace_if(basename.begin(), basename.end(), [](char c) { return !std::isalnum(c); }, '_');
-    return basename + "_H";
+    std::string uppercase_path = file_path;
+    std::transform(uppercase_path.begin(), uppercase_path.end(), uppercase_path.begin(), ::toupper);
+    std::replace_if(uppercase_path.begin(), uppercase_path.end(), [](char c) { return !std::isalnum(c); }, '_');
+    return uppercase_path;
 }
 
 void add_include_guard(EditorState& state) {

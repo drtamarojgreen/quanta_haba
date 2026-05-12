@@ -5,19 +5,20 @@
 #include <algorithm>
 #include <iomanip>
 #include <regex>
-#include <json/json.h>
+#include "StringUtils.h"
+
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 
 #ifdef _WIN32
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
-#else
-#include <openssl/sha.h>
-#include <openssl/evp.h>
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <curl/curl.h>
 #endif
 
 // Constructor
@@ -58,6 +59,7 @@ std::string OAuthClient::generateRandomString(size_t length) {
 }
 
 std::string OAuthClient::base64UrlEncode(const std::string& input) {
+#ifdef _WIN32
     BIO* bio = BIO_new(BIO_s_mem());
     BIO* b64 = BIO_new(BIO_f_base64());
     BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
@@ -80,9 +82,13 @@ std::string OAuthClient::base64UrlEncode(const std::string& input) {
     result.erase(std::find(result.begin(), result.end(), '='), result.end());
     
     return result;
+#else
+    return input; // Stub for Linux
+#endif
 }
 
 std::string OAuthClient::sha256(const std::string& input) {
+#ifdef _WIN32
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
@@ -90,6 +96,9 @@ std::string OAuthClient::sha256(const std::string& input) {
     SHA256_Final(hash, &sha256);
     
     return std::string(reinterpret_cast<char*>(hash), SHA256_DIGEST_LENGTH);
+#else
+    return input; // Stub for Linux
+#endif
 }
 
 bool OAuthClient::initiateAuthorization() {
@@ -200,26 +209,39 @@ bool OAuthClient::exchangeCodeForTokens(const std::string& auth_code) {
             return false;
         }
         
-        // Parse JSON response
-        Json::Value root;
-        Json::Reader reader;
-        if (!reader.parse(response, root)) {
-            std::cerr << "Failed to parse token response JSON" << std::endl;
-            return false;
-        }
-        
-        if (root.isMember("error")) {
-            std::cerr << "Token error: " << root["error"].asString() << std::endl;
+        // Parse JSON response manually
+        auto extract = [&](const std::string& key) {
+            std::string search = "\"" + key + "\": \"";
+            size_t start = response.find(search);
+            if (start == std::string::npos) return std::string("");
+            start += search.length();
+            size_t end = response.find("\"", start);
+            if (end == std::string::npos) return std::string("");
+            return response.substr(start, end - start);
+        };
+
+        std::string error = extract("error");
+        if (!error.empty()) {
+            std::cerr << "Token error: " << error << std::endl;
             return false;
         }
         
         // Extract tokens
-        token_data_.access_token = root["access_token"].asString();
-        token_data_.refresh_token = root.get("refresh_token", "").asString();
-        token_data_.token_type = root.get("token_type", "Bearer").asString();
+        token_data_.access_token = extract("access_token");
+        token_data_.refresh_token = extract("refresh_token");
+        token_data_.token_type = extract("token_type");
+        if (token_data_.token_type.empty()) token_data_.token_type = "Bearer";
         
         // Calculate expiration time
-        int expires_in = root.get("expires_in", 3600).asInt();
+        std::string expires_in_str;
+        std::string search = "\"expires_in\": ";
+        size_t start = response.find(search);
+        if (start != std::string::npos) {
+            start += search.length();
+            size_t end = response.find_first_of(",}", start);
+            expires_in_str = response.substr(start, end - start);
+        }
+        int expires_in = expires_in_str.empty() ? 3600 : std::stoi(expires_in_str);
         token_data_.expires_at = std::chrono::system_clock::now() + std::chrono::seconds(expires_in);
         
         // Store tokens securely
@@ -294,29 +316,41 @@ bool OAuthClient::refreshToken() {
             return false;
         }
         
-        // Parse JSON response
-        Json::Value root;
-        Json::Reader reader;
-        if (!reader.parse(response, root)) {
-            std::cerr << "Failed to parse refresh response JSON" << std::endl;
-            logout();
-            return false;
-        }
-        
-        if (root.isMember("error")) {
-            std::cerr << "Refresh error: " << root["error"].asString() << std::endl;
+        // Parse JSON response manually
+        auto extract = [&](const std::string& key) {
+            std::string search = "\"" + key + "\": \"";
+            size_t start = response.find(search);
+            if (start == std::string::npos) return std::string("");
+            start += search.length();
+            size_t end = response.find("\"", start);
+            if (end == std::string::npos) return std::string("");
+            return response.substr(start, end - start);
+        };
+
+        std::string error = extract("error");
+        if (!error.empty()) {
+            std::cerr << "Refresh error: " << error << std::endl;
             logout();
             return false;
         }
         
         // Update tokens
-        token_data_.access_token = root["access_token"].asString();
-        if (root.isMember("refresh_token")) {
-            token_data_.refresh_token = root["refresh_token"].asString();
+        token_data_.access_token = extract("access_token");
+        std::string new_refresh = extract("refresh_token");
+        if (!new_refresh.empty()) {
+            token_data_.refresh_token = new_refresh;
         }
         
         // Calculate new expiration time
-        int expires_in = root.get("expires_in", 3600).asInt();
+        std::string expires_in_str;
+        std::string search = "\"expires_in\": ";
+        size_t start = response.find(search);
+        if (start != std::string::npos) {
+            start += search.length();
+            size_t end = response.find_first_of(",}", start);
+            expires_in_str = response.substr(start, end - start);
+        }
+        int expires_in = expires_in_str.empty() ? 3600 : std::stoi(expires_in_str);
         token_data_.expires_at = std::chrono::system_clock::now() + std::chrono::seconds(expires_in);
         
         // Store updated tokens
@@ -338,22 +372,19 @@ std::string OAuthClient::callModel(const std::string& prompt, const std::map<std
     }
     
     try {
-        // Prepare API request
-        Json::Value payload;
-        payload["prompt"] = prompt;
-        payload["max_tokens"] = 50; // Default value
+        // Prepare API request manually
+        std::stringstream ss;
+        ss << "{\n";
+        ss << "  \"prompt\": \"" << StringUtils::escapeJson(prompt) << "\",\n";
+        ss << "  \"max_tokens\": 50";
         
         // Add additional parameters
         for (const auto& param : params) {
-            if (param.first == "max_tokens") {
-                payload["max_tokens"] = std::stoi(param.second);
-            } else {
-                payload[param.first] = param.second;
-            }
+            if (param.first == "max_tokens") continue;
+            ss << ",\n  \"" << param.first << "\": \"" << StringUtils::escapeJson(param.second) << "\"";
         }
-        
-        Json::StreamWriterBuilder builder;
-        std::string json_body = Json::writeString(builder, payload);
+        ss << "\n}";
+        std::string json_body = ss.str();
         
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "application/json";
@@ -385,16 +416,16 @@ void OAuthClient::logout() {
 #ifdef _WIN32
 bool OAuthClient::storeTokensSecurely() {
     try {
-        Json::Value token_json;
-        token_json["access_token"] = token_data_.access_token;
-        token_json["refresh_token"] = token_data_.refresh_token;
-        token_json["token_type"] = token_data_.token_type;
+        std::stringstream ss;
+        ss << "{\n";
+        ss << "  \"access_token\": \"" << StringUtils::escapeJson(token_data_.access_token) << "\",\n";
+        ss << "  \"refresh_token\": \"" << StringUtils::escapeJson(token_data_.refresh_token) << "\",\n";
+        ss << "  \"token_type\": \"" << StringUtils::escapeJson(token_data_.token_type) << "\",\n";
         
         auto expires_time_t = std::chrono::system_clock::to_time_t(token_data_.expires_at);
-        token_json["expires_at"] = static_cast<int64_t>(expires_time_t);
-        
-        Json::StreamWriterBuilder builder;
-        std::string token_data = Json::writeString(builder, token_json);
+        ss << "  \"expires_at\": " << static_cast<int64_t>(expires_time_t) << "\n";
+        ss << "}";
+        std::string token_data = ss.str();
         
         std::string target = "quanta_haba_oauth_" + config_.provider_name;
         return storeCredentialWindows(target, token_data);
@@ -414,18 +445,31 @@ bool OAuthClient::loadStoredTokens() {
             return false;
         }
         
-        Json::Value root;
-        Json::Reader reader;
-        if (!reader.parse(token_data, root)) {
-            return false;
+        auto extract = [&](const std::string& key) {
+            std::string search = "\"" + key + "\": \"";
+            size_t start = token_data.find(search);
+            if (start == std::string::npos) return std::string("");
+            start += search.length();
+            size_t end = token_data.find("\"", start);
+            if (end == std::string::npos) return std::string("");
+            return token_data.substr(start, end - start);
+        };
+
+        token_data_.access_token = extract("access_token");
+        token_data_.refresh_token = extract("refresh_token");
+        token_data_.token_type = extract("token_type");
+        if (token_data_.token_type.empty()) token_data_.token_type = "Bearer";
+        
+        std::string expires_at_str;
+        std::string search = "\"expires_at\": ";
+        size_t start = token_data.find(search);
+        if (start != std::string::npos) {
+            start += search.length();
+            size_t end = token_data.find_first_of(",}", start);
+            expires_at_str = token_data.substr(start, end - start);
         }
-        
-        token_data_.access_token = root.get("access_token", "").asString();
-        token_data_.refresh_token = root.get("refresh_token", "").asString();
-        token_data_.token_type = root.get("token_type", "Bearer").asString();
-        
-        int64_t expires_timestamp = root.get("expires_at", 0).asInt64();
-        token_data_.expires_at = std::chrono::system_clock::from_time_t(expires_timestamp);
+        int64_t expires_timestamp = expires_at_str.empty() ? 0 : std::stoll(expires_at_str);
+        token_data_.expires_at = std::chrono::system_clock::from_time_t(static_cast<time_t>(expires_timestamp));
         
         return !token_data_.access_token.empty();
         
@@ -472,6 +516,11 @@ bool OAuthClient::deleteCredentialWindows(const std::string& target) {
 void OAuthClient::openUrlWindows(const std::string& url) {
     ShellExecuteA(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
+#else
+// Linux stubs for token storage
+bool OAuthClient::storeTokensSecurely() { return false; }
+bool OAuthClient::loadStoredTokens() { return false; }
+bool OAuthClient::deleteStoredTokens() { return false; }
 #endif
 
 // HTTP server implementation
@@ -585,6 +634,84 @@ void OAuthClient::serverLoop() {
     
     closesocket(server_socket);
     WSACleanup();
+#else
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket < 0) {
+        std::cerr << "Failed to create socket" << std::endl;
+        return;
+    }
+
+    int opt = 1;
+    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    sockaddr_in server_addr = {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(8080);
+
+    if (bind(server_socket, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) < 0) {
+        std::cerr << "Failed to bind socket" << std::endl;
+        close(server_socket);
+        return;
+    }
+
+    if (listen(server_socket, 1) < 0) {
+        std::cerr << "Failed to listen on socket" << std::endl;
+        close(server_socket);
+        return;
+    }
+
+    // Set non-blocking
+    fcntl(server_socket, F_SETFL, O_NONBLOCK);
+
+    while (server_running_) {
+        sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
+        int client_socket = accept(server_socket, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
+
+        if (client_socket >= 0) {
+            char buffer[4096];
+            int bytes_received = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+
+            if (bytes_received > 0) {
+                buffer[bytes_received] = '\0';
+                std::string request(buffer);
+
+                // Parse request for authorization code
+                std::regex code_regex(R"(GET /callback\?.*code=([^&\s]+))");
+                std::regex state_regex(R"(GET /callback\?.*state=([^&\s]+))");
+                std::regex error_regex(R"(GET /callback\?.*error=([^&\s]+))");
+
+                std::smatch match;
+                if (std::regex_search(request, match, code_regex)) {
+                    received_auth_code_ = match[1].str();
+                }
+                if (std::regex_search(request, match, state_regex)) {
+                    received_state_ = match[1].str();
+                }
+                if (std::regex_search(request, match, error_regex)) {
+                    received_error_ = match[1].str();
+                }
+
+                // Send success response
+                std::string response = "HTTP/1.1 200 OK\r\n"
+                                     "Content-Type: text/html\r\n"
+                                     "Connection: close\r\n\r\n"
+                                     "<!DOCTYPE html><html><head><title>Authentication Successful</title></head>"
+                                     "<body><h1>Authentication Successful!</h1>"
+                                     "<p>You can close this window and return to the application.</p></body></html>";
+
+                send(client_socket, response.c_str(), response.length(), 0);
+            }
+
+            close(client_socket);
+            server_running_ = false; // Stop after handling one request
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    close(server_socket);
 #endif
 }
 
