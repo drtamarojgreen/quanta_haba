@@ -1,0 +1,6 @@
+Situation: Default
+discovered_file_count = 528
+cpp_unit_tests_passed = 17
+headless_python_tests_passed = 4
+package_required_artifacts_found = 5
+package_archive_size_bytes = 243456
