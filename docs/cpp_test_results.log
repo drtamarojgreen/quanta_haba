@@ -1,0 +1,34 @@
+mkdir -p src/c/build
+cd src/c/build && cmake .. && cmake --build .
+-- --------------------------------------------------
+-- Haba CLI Tool build instructions:
+-- 1. Install CMake and a C++ compiler.
+-- 2. Run the following commands from the 'src/c' directory:
+--    mkdir build
+--    cd build
+--    cmake ..
+--    cmake --build .
+-- --------------------------------------------------
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /app/src/c/build
+gmake[1]: Entering directory '/app/src/c/build'
+gmake[2]: Entering directory '/app/src/c/build'
+gmake[3]: Entering directory '/app/src/c/build'
+gmake[3]: Leaving directory '/app/src/c/build'
+[ 16%] Built target cli_editor
+gmake[3]: Entering directory '/app/src/c/build'
+gmake[3]: Leaving directory '/app/src/c/build'
+gmake[3]: Entering directory '/app/src/c/build'
+[ 18%] Building CXX object CMakeFiles/gui_editor.dir/source/ConfigManager.cpp.o
+/app/src/c/source/ConfigManager.cpp: In member function ‘bool ConfigManager::saveConfiguration(const std::string&, const OAuthConfig&)’:
+/app/src/c/source/ConfigManager.cpp:176:5: error: ‘StringUtils’ has not been declared
+  176 |     StringUtils::ensureDirectoryExists("haba");
+      |     ^~~~~~~~~~~
+gmake[3]: *** [CMakeFiles/gui_editor.dir/build.make:174: CMakeFiles/gui_editor.dir/source/ConfigManager.cpp.o] Error 1
+gmake[3]: Leaving directory '/app/src/c/build'
+gmake[2]: *** [CMakeFiles/Makefile2:115: CMakeFiles/gui_editor.dir/all] Error 2
+gmake[2]: Leaving directory '/app/src/c/build'
+gmake[1]: *** [Makefile:101: all] Error 2
+gmake[1]: Leaving directory '/app/src/c/build'
+make: *** [Makefile:7: build-cpp] Error 2

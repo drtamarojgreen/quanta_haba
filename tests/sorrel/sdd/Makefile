@@ -25,7 +25,8 @@ CARDS = cards/HabaParserClass.cpp \
         cards/DeepGuiFeatureParity.cpp \
         cards/DeepPythonCliEvaluation.cpp \
         cards/DeepPythonGuiEvaluation.cpp \
-        cards/DeepPythonParserEvaluation.cpp
+        cards/DeepPythonParserEvaluation.cpp \
+        cards/PackageIntegrity.cpp
 
 BIN_DIR = bin
 BINS = $(patsubst cards/%.cpp, $(BIN_DIR)/%, $(CARDS))
@@ -56,6 +57,10 @@ $(BIN_DIR)/EditorLogicParity: cards/EditorLogicParity.cpp $(LOGIC_SRCS)
 $(BIN_DIR)/ScriptAnalyzerClass: cards/ScriptAnalyzerClass.cpp $(ANALYZER_SRCS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) cards/ScriptAnalyzerClass.cpp $(ANALYZER_SRCS) -o $@ $(LDFLAGS)
+
+$(BIN_DIR)/PackageIntegrity: cards/PackageIntegrity.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) cards/PackageIntegrity.cpp -o $@ $(LDFLAGS)
 
 clean:
 	rm -rf $(BIN_DIR) checkouts

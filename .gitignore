@@ -1,0 +1,9 @@
+
+# QuantaHaba Build and Packaging Artifacts
+build/
+dist/
+src/c/build/
+__pycache__/
+*.pyc
+*.log
+*.txt
