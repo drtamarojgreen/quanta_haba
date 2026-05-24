@@ -75,7 +75,7 @@ public:
             if (trimmed.empty() || trimmed[0] == '#' || trimmed.find("Situation:") == 0) continue;
 
             size_t space_pos = trimmed.find(' ');
-            if (space_pos == std::npos) continue;
+            if (space_pos == std::string::npos) continue;
 
             std::string rest = trim(trimmed.substr(space_pos + 1));
             size_t eq_pos = rest.find('=');

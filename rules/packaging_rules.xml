@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PackagingRules>
+    <Restrictions>
+        <Restriction id="no_external_libs" value="1" />
+        <Restriction id="required_artifacts" value="5" />
+        <Restriction id="numeric_output_only" value="1" />
+    </Restrictions>
+    <Artifacts>
+        <Artifact path="build/package/editor.py" />
+        <Artifact path="build/package/haba_parser.py" />
+        <Artifact path="build/package/haba-converter" />
+        <Artifact path="build/package/configuration/model_config.json" />
+        <Artifact path="build/package/README.md" />
+    </Artifacts>
+</PackagingRules>

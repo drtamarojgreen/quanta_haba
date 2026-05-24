@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="PackagingRules">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Restrictions">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Restriction" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="id" type="xs:string" use="required"/>
+                  <xs:attribute name="value" type="xs:string" use="required"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Artifacts">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Artifact" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="path" type="xs:string" use="required"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

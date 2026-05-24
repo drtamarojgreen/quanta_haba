@@ -1,4 +1,5 @@
 #include "../include/ConfigManager.h"
+#include "../include/StringUtils.h"
 #include <fstream>
 #include <iostream>
 #include <string>

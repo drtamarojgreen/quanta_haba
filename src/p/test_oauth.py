@@ -28,15 +28,15 @@ except ImportError as e:
 def test_secure_token_storage():
     """Test secure token storage functionality"""
     print("\n=== Testing Secure Token Storage ===")
-    
+
     storage = SecureTokenStorage("test_quanta_haba")
     provider_name = "test_provider"
-    
+
     # Test storing tokens
     access_token = "test_access_token_12345"
     refresh_token = "test_refresh_token_67890"
     expires_at = datetime.now() + timedelta(hours=1)
-    
+
     print("Storing test tokens...")
     success = storage.store_tokens(provider_name, access_token, refresh_token, expires_at)
     if success:
@@ -44,7 +44,7 @@ def test_secure_token_storage():
     else:
         print("✗ Failed to store tokens")
         return False
-    
+
     # Test retrieving tokens
     print("Retrieving stored tokens...")
     retrieved_tokens = storage.retrieve_tokens(provider_name)
@@ -53,9 +53,9 @@ def test_secure_token_storage():
         print(f"  Access token: {retrieved_tokens['access_token'][:20]}...")
         print(f"  Refresh token: {retrieved_tokens['refresh_token'][:20]}...")
         print(f"  Expires at: {retrieved_tokens['expires_at']}")
-        
+
         # Verify token data
-        if (retrieved_tokens['access_token'] == access_token and 
+        if (retrieved_tokens['access_token'] == access_token and
             retrieved_tokens['refresh_token'] == refresh_token):
             print("✓ Token data matches")
         else:
@@ -64,7 +64,7 @@ def test_secure_token_storage():
     else:
         print("✗ Failed to retrieve tokens")
         return False
-    
+
     # Test deleting tokens
     print("Deleting stored tokens...")
     success = storage.delete_tokens(provider_name)
@@ -73,7 +73,7 @@ def test_secure_token_storage():
     else:
         print("✗ Failed to delete tokens")
         return False
-    
+
     # Verify tokens are gone
     retrieved_tokens = storage.retrieve_tokens(provider_name)
     if not retrieved_tokens:
@@ -81,13 +81,13 @@ def test_secure_token_storage():
     else:
         print("✗ Tokens still present after deletion")
         return False
-    
+
     return True
 
 def test_oauth_client_creation():
     """Test OAuth client creation and configuration"""
     print("\n=== Testing OAuth Client Creation ===")
-    
+
     # Test configuration
     config = {
         "client_id": "test_client_id",
@@ -99,18 +99,18 @@ def test_oauth_client_creation():
         "redirect_uri": "http://localhost:8080/callback",
         "use_pkce": True
     }
-    
+
     try:
         client = OAuthClient(config, "test_provider")
         print("✓ OAuth client created successfully")
-        
+
         # Test authentication status (should be false initially)
         if not client.is_authenticated():
             print("✓ Initial authentication status is correct (not authenticated)")
         else:
             print("✗ Initial authentication status is incorrect")
             return False
-        
+
         # Test auth status details
         status = client.get_auth_status()
         if not status["authenticated"]:
@@ -119,9 +119,9 @@ def test_oauth_client_creation():
         else:
             print("✗ Detailed auth status is incorrect")
             return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Failed to create OAuth client: {e}")
         return False
@@ -129,7 +129,7 @@ def test_oauth_client_creation():
 def test_pkce_generation():
     """Test PKCE code generation"""
     print("\n=== Testing PKCE Generation ===")
-    
+
     config = {
         "client_id": "test_client_id",
         "client_secret": "test_client_secret",
@@ -138,29 +138,29 @@ def test_pkce_generation():
         "api_base_url": "https://api.example.com",
         "use_pkce": True
     }
-    
+
     try:
         client = OAuthClient(config)
-        
+
         # Access private method for testing (not recommended in production)
         client._generate_pkce_pair()
-        
+
         if hasattr(client, 'code_verifier') and client.code_verifier:
             print("✓ PKCE code verifier generated")
             print(f"  Length: {len(client.code_verifier)} characters")
         else:
             print("✗ PKCE code verifier not generated")
             return False
-        
+
         if hasattr(client, 'code_challenge') and client.code_challenge:
             print("✓ PKCE code challenge generated")
             print(f"  Challenge: {client.code_challenge[:20]}...")
         else:
             print("✗ PKCE code challenge not generated")
             return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ PKCE generation failed: {e}")
         return False
@@ -168,7 +168,7 @@ def test_pkce_generation():
 def test_oauth_flow_simulation():
     """Simulate OAuth flow without actual network calls"""
     print("\n=== Testing OAuth Flow Simulation ===")
-    
+
     config = {
         "client_id": "test_client_id",
         "client_secret": "test_client_secret",
@@ -178,17 +178,17 @@ def test_oauth_flow_simulation():
         "scopes": ["read"],
         "use_pkce": True
     }
-    
+
     try:
         client = OAuthClient(config)
-        
+
         # Test authorization URL generation (simulate initiate_authorization)
         client._generate_pkce_pair()
         client._state = "test_state_12345"
-        
+
         # Build authorization URL manually to test
         from urllib.parse import urlencode
-        
+
         params = {
             "response_type": "code",
             "client_id": config["client_id"],
@@ -198,15 +198,15 @@ def test_oauth_flow_simulation():
             "code_challenge": client.code_challenge,
             "code_challenge_method": "S256"
         }
-        
+
         auth_url = f"{config['authorization_url']}?{urlencode(params)}"
         print("✓ Authorization URL generated successfully")
         print(f"  URL length: {len(auth_url)} characters")
         print(f"  Contains client_id: {'client_id=' + config['client_id'] in auth_url}")
         print(f"  Contains PKCE challenge: {'code_challenge=' in auth_url}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ OAuth flow simulation failed: {e}")
         return False
@@ -214,7 +214,7 @@ def test_oauth_flow_simulation():
 def test_configuration_validation():
     """Test configuration validation"""
     print("\n=== Testing Configuration Validation ===")
-    
+
     # Test with minimal valid config
     minimal_config = {
         "client_id": "test_id",
@@ -223,23 +223,23 @@ def test_configuration_validation():
         "token_url": "https://example.com/token",
         "api_base_url": "https://api.example.com"
     }
-    
+
     try:
         client = OAuthClient(minimal_config)
         print("✓ Minimal configuration accepted")
-        
+
         # Check default values
         if client.config.get("use_pkce", False):
             print("✓ PKCE enabled by default")
-        
+
         if client.config.get("redirect_uri") == "http://localhost:8080/callback":
             print("✓ Default redirect URI set correctly")
-        
+
         if client.config.get("scopes") == ["read"]:
             print("✓ Default scopes set correctly")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Configuration validation failed: {e}")
         return False
@@ -435,10 +435,10 @@ def run_all_tests():
         ("OAuth Flow Simulation", test_oauth_flow_simulation),
         ("Configuration Validation", test_configuration_validation)
     ]
-    
+
     procedural_passed = 0
     procedural_failed = 0
-    
+
     for test_name, test_func in procedural_tests:
         print(f"\nRunning: {test_name}")
         try:
@@ -451,7 +451,7 @@ def run_all_tests():
         except Exception as e:
             print(f"✗ {test_name} FAILED with exception: {e}")
             procedural_failed += 1
-    
+
     # --- Running BDD tests ---
     print("\n--- Running BDD Unittests ---")
     # Temporarily add a placeholder test to ensure the suite runs.
@@ -480,7 +480,7 @@ def run_all_tests():
     print(f"✓ Passed: {passed}")
     print(f"✗ Failed: {failed}")
     print(f"Total: {passed + failed}")
-    
+
     if failed == 0:
         print("\n🎉 All tests passed! OAuth implementation is working correctly.")
         return True
@@ -493,7 +493,7 @@ def print_system_info():
     print("\nSystem Information:")
     print(f"Python version: {sys.version}")
     print(f"Platform: {sys.platform}")
-    
+
     # Check for required packages
     required_packages = ['requests', 'requests_oauthlib', 'keyring']
     for package in required_packages:
@@ -505,9 +505,9 @@ def print_system_info():
 
 if __name__ == "__main__":
     print_system_info()
-    
+
     success = run_all_tests()
-    
+
     if success:
         print("\n" + "=" * 50)
         print("OAuth Implementation Test Complete!")

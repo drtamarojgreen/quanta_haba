@@ -32,12 +32,20 @@ add_executable(haba-converter
     source/StringUtils.cpp
 )
 
+add_executable(sorrel
+    source/sorrel_cli.cpp
+)
+
 # Add the include directory to the include path
 target_include_directories(cli_editor PRIVATE
     include
 )
 
 target_include_directories(haba-converter PRIVATE
+    include
+)
+
+target_include_directories(sorrel PRIVATE
     include
 )
 

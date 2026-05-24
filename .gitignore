@@ -1,0 +1,16 @@
+# QuantaHaba Build and Distribution
+build/
+dist/
+src/c/build/
+bin/
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Logs and results
+*.log
+*.results
+*.fact
