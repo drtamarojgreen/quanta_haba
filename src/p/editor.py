@@ -508,35 +508,29 @@ def analyze_javascript_line(line, i):
     issues = []
     line_num = i + 1
 
-    # Check for long lines
     if len(line) > 80:
         issues.append(("long_line", f"{line_num}.0", f"{line_num}.{len(line)}"))
 
-    # Check for trailing whitespace
     match = re.search(r'(\s+)$', line)
     if match:
         start_pos = match.start(1)
         issues.append(("trailing_whitespace", f"{line_num}.{start_pos}", f"{line_num}.{len(line)}"))
 
-    # Check for `var` keyword
     for match in re.finditer(r'\bvar\b', line):
         issues.append(("use_of_var", f"{line_num}.{match.start()}", f"{line_num}.{match.end()}"))
 
-    # Check for `==` or `!=`
     comment_pos = line.find('//')
     for match in re.finditer(r'==|!=', line):
         if comment_pos != -1 and match.start() > comment_pos:
             continue
         issues.append(("use_of_double_equals", f"{line_num}.{match.start()}", f"{line_num}.{match.end()}"))
 
-    # Check for functions with too many parameters
     match = re.search(r'function\s*\w*\s*\(([^)]*)\)', line)
     if match:
         params = match.group(1).split(',')
         if len(params) > 5:
             issues.append(("many_parameters", f"{line_num}.{match.start()}", f"{line_num}.{match.end()}"))
 
-    # Check for missing semicolon
     stripped_line = line.strip()
     if stripped_line and not stripped_line.startswith(("//", "/*")) and not stripped_line.endswith(("{", "}", ";", ",")):
         issues.append(("missing_semicolon", f"{line_num}.{len(stripped_line)-1}", f"{line_num}.{len(stripped_line)}"))

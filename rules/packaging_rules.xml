@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<PackagingRules xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<PackagingRules>
     <Restrictions>
         <Restriction id="no_external_libs" value="1" />
         <Restriction id="required_artifacts" value="5" />

@@ -3,35 +3,44 @@
 #include <vector>
 #include <fstream>
 #include <regex>
+#include <map>
 
-void discover(const std::string& target) {
-    if (target == "sdd") {
-        std::cout << "tests/sdd" << std::endl;
-    } else if (target == "facts") {
-        std::cout << "tests/sdd/facts" << std::endl;
-    }
-}
+std::map<std::string, std::string> load_discovery_map(const std::string& xml_path) {
+    std::map<std::string, std::string> targets;
+    std::ifstream file(xml_path);
+    if (!file.is_open()) return targets;
 
-void parse_rules(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) return;
     std::string line;
-    std::regex artifact_re("<Artifact path=\"([^\"]+)\" />");
+    std::regex target_re("<Target id=\"([^\"]+)\" path=\"([^\"]+)\" />");
     std::smatch match;
     while (std::getline(file, line)) {
-        if (std::regex_search(line, match, artifact_re)) {
-            std::cout << "Rule Artifact: " << match[1] << std::endl;
+        if (std::regex_search(line, match, target_re)) {
+            targets[match[1]] = match[2];
         }
     }
+    return targets;
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) return 1;
+    // Zero hardcoded strings for paths. Configuration must be provided.
+    const char* config_env = std::getenv("SORREL_CONFIG_PATH");
+    std::string config_path = config_env ? config_env : "rules/sorrel_discovery.xml";
+
+    if (argc < 2) {
+        std::cout << "Sorrel CLI" << std::endl;
+        return 1;
+    }
+
     std::string cmd = argv[1];
     if (cmd == "discover" && argc > 2) {
-        discover(argv[2]);
-    } else if (cmd == "rules" && argc > 2) {
-        parse_rules(argv[2]);
+        std::string target_id = argv[2];
+        auto targets = load_discovery_map(config_path);
+        if (targets.count(target_id)) {
+            std::cout << targets[target_id] << std::endl;
+        } else {
+            std::cerr << "Unknown target: " << target_id << std::endl;
+            return 1;
+        }
     }
     return 0;
 }

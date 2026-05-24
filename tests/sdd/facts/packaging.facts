@@ -1,5 +1,5 @@
 Situation: Default
 Is required_artifact_count = 5
-Is build_directory = build/package
-Is dist_directory = dist
+Is build_directory = ../../../build/package
+Is dist_directory = ../../../dist
 Is package_version = 1.0.0

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DiscoveryTargets>
+    <Target id="sdd" path="tests/sorrel/sdd" />
+    <Target id="facts" path="tests/sorrel/sdd/facts" />
+</DiscoveryTargets>

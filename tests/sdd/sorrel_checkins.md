@@ -5,7 +5,7 @@
 2. Reasoning Gate and Restrictions Definition
 3. Python Refactoring: Headless Logic Extraction
 4. Orchestration: Build and Package implementation
-5. SDD Card Construction: PackageIntegrity (Fact-grounded)
+5. SDD Card Construction: PackagingAudit (Fact-grounded, Dispatch Pattern)
 
 ## Reasoning Gates
 ### Interpretation Gate
@@ -24,3 +24,4 @@
 - restriction_no_external_libs = 1
 - restriction_numeric_output_only = 1
 - restriction_fact_grounded_discovery = 1
+- restriction_zero_hardcoded_paths = 1

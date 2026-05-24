@@ -19,4 +19,4 @@ clean:
 	rm -rf src/c/build
 	rm -rf dist/
 	rm -rf build/
-	rm -rf src/p/*.egg-info
+	rm -f src/p/*.egg-info

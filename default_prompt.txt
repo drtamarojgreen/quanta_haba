@@ -1,0 +1,10 @@
+This is a test file for the Haba CLI editor.
+It contains several TODO items that can be processed by the model demo.
+
+TODO: Implement the user authentication flow.
+This line is just a regular comment.
+TODO: Refactor the database connection logic.
+TODO: Write unit tests for the new parser.
+
+#pragma once is a common directive.
+Final line of the file.
