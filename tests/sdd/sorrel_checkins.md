@@ -1,26 +1,26 @@
 # Sorrel Checkins - Packaging Haba
 
-## Planned Sips
-- [x] Environment Discovery
-- [ ] Reasoning Gate and Restrictions Definition (Current)
-- [ ] Python Refactoring: Conflict Resolution
-- [ ] Python Refactoring: Headless Verification
-- [ ] Orchestration: Build and Package
-- [ ] SDD Card Construction: Numeric Package Integrity
-- [ ] Empirical Execution and Unified Logging
+## SIP Workflow
+1. Environment Discovery (via sorrel CLI)
+2. Reasoning Gate and Restrictions Definition
+3. Python Refactoring: Headless Logic Extraction
+4. Orchestration: Build and Package implementation
+5. SDD Card Construction: PackageIntegrity (Fact-grounded)
 
 ## Reasoning Gates
 ### Interpretation Gate
-- objective_confirmed: true
-- environment_confirmed: true
-- packaging_target: distribution archive (.tar.gz)
+- REASONING
+- objective_confirmed: 1
+- environment_confirmed: 1
+- END
 
 ### Constraint Gate
+- REASONING
 - max_binary_dependencies: 0
 - required_artifact_count: 5
-- platform: linux
+- END
 
-## Restrictions
+## Restrictions Phase
 - restriction_no_external_libs = 1
-- restriction_required_artifacts = 5
 - restriction_numeric_output_only = 1
+- restriction_fact_grounded_discovery = 1

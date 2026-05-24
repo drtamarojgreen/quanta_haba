@@ -21,6 +21,7 @@ dependencies = [
     "requests",
     "requests-oauthlib",
     "keyring",
+    "selenium",
 ]
 
 [project.urls]

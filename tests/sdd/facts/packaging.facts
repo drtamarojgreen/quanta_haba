@@ -1,6 +1,5 @@
 Situation: Default
-discovered_file_count = 528
-cpp_unit_tests_passed = 17
-headless_python_tests_passed = 4
-package_required_artifacts_found = 5
-package_archive_size_bytes = 243456
+Is required_artifact_count = 5
+Is build_directory = build/package
+Is dist_directory = dist
+Is package_version = 1.0.0
