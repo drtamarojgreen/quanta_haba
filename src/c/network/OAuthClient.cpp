@@ -1,4 +1,4 @@
-#include "../include/OAuthClient.h"
+#include "OAuthClient.h"
 #include <iostream>
 #include <sstream>
 #include <random>

@@ -1,4 +1,4 @@
-#include "../include/ScriptAnalyzer.h"
+#include "ScriptAnalyzer.h"
 #include <regex>
 #include <sstream>
 #include <iterator>

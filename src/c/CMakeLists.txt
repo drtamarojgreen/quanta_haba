@@ -7,51 +7,49 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define the executable target and list its source files
 add_executable(cli_editor
-    source/cli_editor.cpp
-    source/EditorLogic.cpp
-    source/HabaParser.cpp
-    source/html_generator.cpp
-    source/StringUtils.cpp
+    editor/cli_editor.cpp
+    editor/EditorLogic.cpp
+    parser/HabaParser.cpp
+    export/html_generator.cpp
+    core/StringUtils.cpp
 )
 
 add_executable(gui_editor
-    source/gui_editor.cpp
-    source/EditorLogic.cpp
-    source/HabaParser.cpp
-    source/html_generator.cpp
-    source/StringUtils.cpp
-    source/OAuthClient.cpp
-    source/ScriptAnalyzer.cpp
-    source/ConfigManager.cpp
+    editor/gui_editor.cpp
+    editor/EditorLogic.cpp
+    parser/HabaParser.cpp
+    export/html_generator.cpp
+    core/StringUtils.cpp
+    network/OAuthClient.cpp
+    parser/ScriptAnalyzer.cpp
+    core/ConfigManager.cpp
 )
 
 add_executable(haba-converter
-    source/main.cpp
-    source/HabaParser.cpp
-    source/html_generator.cpp
-    source/StringUtils.cpp
+    export/main.cpp
+    parser/HabaParser.cpp
+    export/html_generator.cpp
+    core/StringUtils.cpp
 )
 
 add_executable(sorrel
-    source/sorrel_cli.cpp
+    sorrel/sorrel_cli.cpp
 )
 
-# Add the include directory to the include path
-target_include_directories(cli_editor PRIVATE
-    include
+# Set include directories for all targets
+set(PACKAGE_INCLUDES
+    core
+    parser
+    editor
+    network
+    export
+    sorrel
 )
 
-target_include_directories(haba-converter PRIVATE
-    include
-)
-
-target_include_directories(sorrel PRIVATE
-    include
-)
-
-target_include_directories(gui_editor PRIVATE
-    include
-)
+target_include_directories(cli_editor PRIVATE ${PACKAGE_INCLUDES})
+target_include_directories(gui_editor PRIVATE ${PACKAGE_INCLUDES})
+target_include_directories(haba-converter PRIVATE ${PACKAGE_INCLUDES})
+target_include_directories(sorrel PRIVATE ${PACKAGE_INCLUDES})
 
 # Enable testing with CTest
 enable_testing()
@@ -67,18 +65,18 @@ add_executable(run_tests_cmake
     ../../tests/c/test_parser_build.cpp
     ../../tests/c/test_gui_logic.cpp
     ../../tests/data/test_logging.cpp
-    source/HabaParser.cpp
-    source/ScriptAnalyzer.cpp
-    source/ConfigManager.cpp
-    source/OAuthClient.cpp
-    source/html_generator.cpp
-    source/EditorLogic.cpp
-    source/StringUtils.cpp
+    parser/HabaParser.cpp
+    parser/ScriptAnalyzer.cpp
+    core/ConfigManager.cpp
+    network/OAuthClient.cpp
+    export/html_generator.cpp
+    editor/EditorLogic.cpp
+    core/StringUtils.cpp
 )
 
 # Link include directories to the test executable
 target_include_directories(run_tests_cmake PRIVATE
-    include
+    ${PACKAGE_INCLUDES}
     ../../tests/c/
 )
 
