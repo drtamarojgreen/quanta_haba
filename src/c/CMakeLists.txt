@@ -64,6 +64,7 @@ add_executable(run_tests_cmake
     ../../tests/c/test_cli_logic.cpp
     ../../tests/c/test_parser_build.cpp
     ../../tests/c/test_gui_logic.cpp
+    ../../tests/c/test_local_model.cpp
     ../../tests/data/test_logging.cpp
     parser/HabaParser.cpp
     parser/ScriptAnalyzer.cpp
@@ -72,6 +73,7 @@ add_executable(run_tests_cmake
     export/html_generator.cpp
     editor/EditorLogic.cpp
     core/StringUtils.cpp
+    editor/cli_editor.cpp
 )
 
 # Link include directories to the test executable
@@ -79,6 +81,7 @@ target_include_directories(run_tests_cmake PRIVATE
     ${PACKAGE_INCLUDES}
     ../../tests/c/
 )
+target_compile_definitions(run_tests_cmake PRIVATE TESTING)
 
 # Add a test to be run by CTest
 add_test(NAME HabaParserTest COMMAND run_tests_cmake)

@@ -4,6 +4,7 @@ import re
 import os
 import sys
 import json
+import subprocess
 import numpy as np
 try:
     from quanta_tissu.tisslm.core.model import QuantaTissu
@@ -40,6 +41,7 @@ class QuantaDemoWindow(tk.Toplevel):
         
         # Initialize managers and variables
         self.config_manager = ConfigManager()
+        self.quanta_config = self._load_quanta_config()
         self.model = None
         self.tokenizer = None
         self.work_products = []
@@ -56,6 +58,28 @@ class QuantaDemoWindow(tk.Toplevel):
         
         # Start demo after everything is set up
         self.after(500, self.start_quanta_demo)
+
+    def _load_quanta_config(self):
+        """Loads configuration from .quanta file if it exists."""
+        config = {}
+        # Try to find .quanta in the project root
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        quanta_path = os.path.join(project_root, ".quanta")
+        
+        if os.path.exists(quanta_path):
+            try:
+                with open(quanta_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if '=' in line:
+                            key, value = line.split('=', 1)
+                            config[key.strip()] = value.strip()
+            except Exception as e:
+                print(f"Error loading .quanta: {e}")
+        return config
 
     def initialize_model(self):
         if not QUANTA_TISSU_AVAILABLE:
@@ -199,7 +223,7 @@ class QuantaDemoWindow(tk.Toplevel):
                 model_response = f"External model failed: {e}"
                 is_stubbed = True
 
-        # Fallback to local model
+        # Fallback to local model (Quanta Tissu)
         elif self.model and self.tokenizer:
             try:
                 self.log_to_console("Calling local Quanta Tissu model...")
@@ -211,6 +235,51 @@ class QuantaDemoWindow(tk.Toplevel):
                 )
                 is_stubbed = False
             except Exception as e:
+                model_response = f"Stubbed response for '{task}'"
+                is_stubbed = True
+        
+        # Fallback to llama-cli from .quanta
+        elif self.quanta_config.get("model.llama_cli_path") and self.quanta_config.get("engine.model_path"):
+            try:
+                self.log_to_console("Calling local llama-cli model...")
+                llama_path = self.quanta_config.get("model.llama_cli_path")
+                model_path = self.quanta_config.get("engine.model_path")
+                
+                cmd = [
+                    llama_path,
+                    "-m", model_path,
+                    "-p", task,
+                    "-n", "128",
+                    "--temp", "0",
+                    "--no-display-prompt",
+                    "--log-disable",
+                    "--simple-io",
+                    "--single-turn",
+                    "--no-show-timings"
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    output = result.stdout
+                    # Cleanup output (similar to C++ implementation)
+                    prompt_marker = f"> {task}"
+                    if prompt_marker in output:
+                        output = output.split(prompt_marker, 1)[1]
+                    
+                    if "Exiting..." in output:
+                        output = output.split("Exiting...", 1)[0]
+                    
+                    model_response = output.strip()
+                    if not model_response:
+                        model_response = "Error: Empty response from llama-cli."
+                        is_stubbed = True
+                    else:
+                        is_stubbed = False
+                else:
+                    model_response = f"llama-cli error: {result.stderr}"
+                    is_stubbed = True
+            except Exception as e:
+                self.log_to_console(f"llama-cli error: {e}")
                 model_response = f"Stubbed response for '{task}'"
                 is_stubbed = True
         else:
