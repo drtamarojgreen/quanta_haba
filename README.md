@@ -8,6 +8,25 @@ QuantaHaba is a Velo-integrated, LLM-powered design editor that blends structure
 
 [![Watch the video](https://img.youtube.com/vi/3Mglddunz5s/0.jpg)](https://www.youtube.com/watch?v=3Mglddunz5s)
 
+## Interactive Demo
+
+To help you get started with QuantaHaba quickly, a fully configured interactive demo file (`demo.haba`) is included in the root directory. This demo highlights the core features of the editor:
+- **Multi-layered Structure**: Demonstrates `<content_layer>`, `<presentation_layer>` (styles mapped to containers by order), `<script_layer>` (JS execution), and `<to_do>` layer.
+- **WYSIWYG Preview**: Live rendering with styles like `color` and `font-size`.
+- **Developer Panels**: Populates the symbol outline, TODO explorer, and linting panels.
+
+### Running the Demo
+
+To launch the Python editor and automatically load the interactive demo, run the following command from the repository root:
+
+```bash
+python3 src/p/editor.py demo.haba
+```
+
+Here is a preview of the QuantaHaba editor displaying the loaded `demo.haba` file:
+
+![QuantaHaba Editor Demo Screenshot](docs/images/demo_screenshot.png)
+
 ## Current Available Features
 
 ### Core Editing & Parsing
