@@ -1,0 +1,44 @@
+<content_layer>
+QuantaHaba Design Editor
+--------------------------
+Welcome to QuantaHaba, an LLM-powered structured design editor!
+This is a live preview of the demo.haba file format.
+The document is split into content, presentation, script, and todo layers.
+You can edit the raw text on the left pane and see live WYSIWYG updates.
+The sidebar tabs on the right explore symbols, TODOs, and script execution outputs.
+</content_layer>
+<presentation_layer>
+    <containers>
+        h1
+        hr
+        p
+        p
+        li
+        li
+        li
+    </containers>
+    <styles>
+        color: '#1B4D3E'; font-size: '26px'
+        color: '#A3B19B'; font-size: '14px'
+        color: '#2C3E50'; font-size: '16px'
+        color: '#34495E'; font-size: '15px'
+        color: '#2980B9'; font-size: '14px'
+        color: '#2980B9'; font-size: '14px'
+        color: '#2980B9'; font-size: '14px'
+    </styles>
+</presentation_layer>
+<script_layer>
+// Let's explore the symbol outline and todo panel features
+function onload() {
+    console.log("Welcome to QuantaHaba!");
+}
+
+// TODO: Add support for inline interactive widgets
+// FIXME: Semicolon lint rule warning on next line
+var greeting = "Hello from JavaScript"
+</script_layer>
+<to_do>
+1. Design responsive button styles.
+2. Integrate with Quanta Tissu local model.
+3. Test OAuth provider configurations.
+</to_do>
